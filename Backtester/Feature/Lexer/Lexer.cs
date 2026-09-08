@@ -1,8 +1,13 @@
+using System.Runtime.CompilerServices;
+using System.Security.Principal;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Mvc;
 
 public enum TokenKind
 {
     EOF,
+    SPACE,
+    FLOAT,
     INT,
     STRING,
     IDENTIFIER,
@@ -43,11 +48,19 @@ public enum TokenKind
     PERCENT,
 }
 
-public partial class TokenRecognition
+public static class TokenKindExtensions
 {
-    (TokenKind Kind, Regex Pattern)[] Patterns =
+    public static string? ToString(this TokenKind kind)
+        => Enum.GetName(kind);
+}
+
+public static partial class TokenRecognition
+{
+    public static (TokenKind Kind, Regex Pattern)[] Patterns =
     {
+        (TokenKind.SPACE,        WhiteSpace()),
         (TokenKind.STRING,       QuotedString()),
+        (TokenKind.FLOAT,        Float()),
         (TokenKind.INT,          Integer()),
         (TokenKind.IDENTIFIER,   Identifier()),
 
@@ -87,6 +100,9 @@ public partial class TokenRecognition
         (TokenKind.PERCENT, Percent()),
     };
 
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhiteSpace();
+
     // ── String ──────────────────────────────────────────────
     [GeneratedRegex("\"([^\"]*)\"")]
     private static partial Regex QuotedString();
@@ -94,6 +110,9 @@ public partial class TokenRecognition
     // ── Number ──────────────────────────────────────────────
     [GeneratedRegex(@"\d+")]
     private static partial Regex Integer();
+
+    [GeneratedRegex(@"\d+\.\d+")]
+    private static partial Regex Float();
 
     // ── Identifier ──────────────────────────────────────────
     [GeneratedRegex(@"[a-zA-Z_]\w*")]
@@ -197,12 +216,72 @@ public class Lexer
     public int Position { get; private set; } = 0;
     public List<Token> Tokens { get; } = [];
 
+    private void AdvancePosition(int n)
+        => Position += n;
+
+    private void AddToken(Token token)
+        => Tokens.Add(token);
+
+    private bool TryMatch(string source,
+                            out Token? token,
+                            out int length)
+    {
+        var match = TokenRecognition.Patterns.Select(p => (p, match: p.Pattern.Match(source)))
+                                                .Where(x => x.match.Success && x.match.Index == 0)
+                                                .MaxBy(x => x.match.Length);
+
+        if (match == default)
+        {
+            token = default;
+            length = 0;
+            return false;
+        }
+
+        var (pattern, tokenMatch) = match;
+
+        var value = pattern.Kind == TokenKind.STRING
+                        ? tokenMatch.Value[1..^1]
+                        : tokenMatch.Value;
+
+        token = new(pattern.Kind, value);
+        length = tokenMatch.Value.Length;
+
+        return true;
+    }
+
     /// <summary>
-    /// Collect token
+    /// Collect tokens
     /// </summary>
     /// <param name="source"></param>
-    public void LoadToken(string source)
+    public void Tokenize(string source)
     {
+        while (source.Length > 0)
+        {
+            if (!TryMatch(source, out var token, out var length))
+                throw new Exception(
+                    $"Unrecognised Token at Position {Position}");
 
+            if (token!.Kind != TokenKind.SPACE)
+                AddToken(token);
+
+            AdvancePosition(length);
+            source = source[length..];
+        }
     }
+}
+[ApiController]
+[Route("api/lexer")]
+public class LexerController : ControllerBase
+{
+    [HttpPost("scan")]
+    public async Task<IActionResult> Scan(string source)
+    {
+        var lexer = new Lexer();
+        lexer.Tokenize(source);
+        return Ok(lexer.Tokens);
+    }
+
+    [HttpPost("scan001")]
+    public async Task<IActionResult> Scan001()
+        => await Scan("   1 +    1  * 9.98  - 12 % (\"alfa\")");
 }
