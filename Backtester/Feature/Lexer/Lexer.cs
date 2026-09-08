@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Security.Principal;
 using System.Text.RegularExpressions;
+using System.Xml;
 using Microsoft.AspNetCore.Mvc;
 
 public enum TokenKind
@@ -11,6 +12,8 @@ public enum TokenKind
     INT,
     STRING,
     IDENTIFIER,
+    VERSION,
+    COMMENT,
 
     OPEN_BRACKET,
     CLOSE_BRACKET,
@@ -32,6 +35,7 @@ public enum TokenKind
     AND,
 
     DOT,
+    COLON,
     SEMICOLON,
     QUESTION,
     COMMA,
@@ -46,6 +50,10 @@ public enum TokenKind
     STAR,
     SLASH,
     PERCENT,
+
+    // Added by ME
+    COLOR_HEX,
+    REASSIGNMENT,
 }
 
 public static class TokenKindExtensions
@@ -63,6 +71,8 @@ public static partial class TokenRecognition
         (TokenKind.FLOAT,        Float()),
         (TokenKind.INT,          Integer()),
         (TokenKind.IDENTIFIER,   Identifier()),
+        (TokenKind.VERSION,      Version()),
+        (TokenKind.COMMENT,      Comment()),
 
         (TokenKind.OPEN_BRACKET,  OpenBracket()),
         (TokenKind.CLOSE_BRACKET, CloseBracket()),
@@ -84,6 +94,7 @@ public static partial class TokenRecognition
         (TokenKind.AND,          And()),
 
         (TokenKind.DOT,        Dot()),
+        (TokenKind.COLON,      Colon()),
         (TokenKind.SEMICOLON,  Semicolon()),
         (TokenKind.QUESTION,   Question()),
         (TokenKind.COMMA,      Comma()),
@@ -98,6 +109,10 @@ public static partial class TokenRecognition
         (TokenKind.STAR,    Star()),
         (TokenKind.SLASH,   Slash()),
         (TokenKind.PERCENT, Percent()),
+
+        // Added by ME
+        (TokenKind.COLOR_HEX, HexColor()),
+        (TokenKind.REASSIGNMENT, ReAssignment()),
     };
 
     [GeneratedRegex(@"\s+")]
@@ -117,6 +132,12 @@ public static partial class TokenRecognition
     // ── Identifier ──────────────────────────────────────────
     [GeneratedRegex(@"[a-zA-Z_]\w*")]
     private static partial Regex Identifier();
+
+    [GeneratedRegex(@"\/\/@version=(\d)+$", RegexOptions.Multiline)]
+    private static partial Regex Version();
+
+    [GeneratedRegex(@"^\/\/[^@](.*)$", RegexOptions.Multiline)]
+    private static partial Regex Comment();
 
     // ── Brackets / Parens ───────────────────────────────────
     [GeneratedRegex(@"\[")]
@@ -170,6 +191,9 @@ public static partial class TokenRecognition
     [GeneratedRegex(@"\.")]
     private static partial Regex Dot();
 
+    [GeneratedRegex(@":")]
+    private static partial Regex Colon();
+
     [GeneratedRegex(@";")]
     private static partial Regex Semicolon();
 
@@ -206,6 +230,12 @@ public static partial class TokenRecognition
 
     [GeneratedRegex(@"%")]
     private static partial Regex Percent();
+
+    // ADDDED BY ME
+    [GeneratedRegex(@"#[0-9A-Za-z]+")]
+    private static partial Regex HexColor();
+    [GeneratedRegex(@":=")]
+    private static partial Regex ReAssignment();
 }
 
 public record Token(TokenKind Kind, string Value);
@@ -226,25 +256,32 @@ public class Lexer
                             out Token? token,
                             out int length)
     {
-        var match = TokenRecognition.Patterns.Select(p => (p, match: p.Pattern.Match(source)))
-                                                .Where(x => x.match.Success && x.match.Index == 0)
-                                                .MaxBy(x => x.match.Length);
+        var best = default((TokenKind Kind, Regex Pattern, Match Match)?);
 
-        if (match == default)
+        foreach (var (kind, pattern) in TokenRecognition.Patterns)
+        {
+            var match = pattern.Match(source);
+
+            if (!match.Success || match.Index != 0)
+                continue;
+
+            if (best is null || match.Length > best.Value.Match.Length)
+                best = (kind, pattern, match);
+        }
+
+        if (best is null)
         {
             token = default;
             length = 0;
             return false;
         }
 
-        var (pattern, tokenMatch) = match;
+        var result = best.Value;
 
-        var value = pattern.Kind == TokenKind.STRING
-                        ? tokenMatch.Value[1..^1]
-                        : tokenMatch.Value;
+        var value = result.Match.Groups[^1].Value;
 
-        token = new(pattern.Kind, value);
-        length = tokenMatch.Value.Length;
+        token = new(result.Kind, value);
+        length = result.Match.Length;
 
         return true;
     }
@@ -284,4 +321,8 @@ public class LexerController : ControllerBase
     [HttpPost("scan001")]
     public async Task<IActionResult> Scan001()
         => await Scan("   1 +    1  * 9.98  - 12 % (\"alfa\")");
+
+    [HttpPost("test002")]
+    public async Task<IActionResult> Test002()
+        => await Scan(Utils.Resources.ReadFile("test002"));
 }
