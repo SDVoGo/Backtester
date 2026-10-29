@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Pine.Core\Pine.Core.csproj" />
+    <ProjectReference Include="..\Backtester.Engine\Backtester.Engine.csproj" />
   </ItemGroup>
 
 </Project>

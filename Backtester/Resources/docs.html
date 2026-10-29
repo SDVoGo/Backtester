@@ -100,6 +100,8 @@
   <a class="sub" href="#costi">Size, commissioni, slippage</a>
   <a class="sub" href="#csv">Dati OHLCV</a>
   <a href="#fase5">Fase 5 — Output e metriche</a>
+  <a class="sub" href="#lancio">CLI ed endpoint</a>
+  <a class="sub" href="#golden">Confronto con TradingView</a>
   <a href="#limiti">Limiti noti</a>
 </nav>
 
@@ -165,7 +167,7 @@ simulando un broker. Questa pagina spiega ogni fase: cosa fa, come è costruita 
   <tr><td>2 — Interprete</td><td>Esecuzione barra per barra, serie, stato</td><td><span class="badge done">fatto</span></td></tr>
   <tr><td>3 — Built-in</td><td><code>input.* math.* str.* color.* ta.*</code>, no-op grafici</td><td><span class="badge done">fatto</span></td></tr>
   <tr><td>4 — Motore</td><td>Broker simulato, trade, equity</td><td><span class="badge done">fatto</span></td></tr>
-  <tr><td>5 — Output</td><td>CSV, metriche, golden test con TradingView, CLI/endpoint</td><td><span class="badge next">prossima</span></td></tr>
+  <tr><td>5 — Output</td><td>CSV, metriche, confronto con TradingView, CLI ed endpoint</td><td><span class="badge done">fatto</span></td></tr>
 </table>
 
 <!-- ───────────────────────────────────────────── -->
@@ -173,8 +175,10 @@ simulando un broker. Questa pagina spiega ogni fase: cosa fa, come è costruita 
 <table>
   <tr><th>Progetto</th><th>Contenuto</th></tr>
   <tr><td><code>Pine.Core</code></td><td>Il linguaggio: <code>Lexing</code>, <code>Parsing</code>, <code>Syntax</code> (AST), <code>Runtime</code> (interprete, valori, serie) e <code>Runtime/Builtins</code>. Non sa nulla di ordini o broker.</td></tr>
-  <tr><td><code>Backtester.Engine</code></td><td>Broker simulato, <code>strategy.*</code>, lettura OHLCV da CSV, punto d'ingresso <code>Backtest.Run</code>.</td></tr>
-  <tr><td><code>Backtester</code></td><td>Host ASP.NET: endpoint per lexer e parser, questa pagina su <code>/docs</code>.</td></tr>
+  <tr><td><code>Backtester.Engine</code></td><td>Broker simulato, <code>strategy.*</code>, lettura OHLCV da CSV, punto d'ingresso <code>Backtest.Run</code>,
+  metriche e report CSV (<code>Reporting</code>), confronto con TradingView (<code>Golden</code>).</td></tr>
+  <tr><td><code>Backtester</code></td><td>Host ASP.NET: endpoint per lexer, parser e backtest, questa pagina su <code>/docs</code>.</td></tr>
+  <tr><td><code>Backtester.Cli</code></td><td>Comando <code>backtest</code>: esegue una strategia da riga di comando e scrive i CSV.</td></tr>
   <tr><td><code>*.Tests</code></td><td>Test xUnit di ogni livello, compresi script completi (<code>test002.pine</code>, <code>strategy001.pine</code>).</td></tr>
 </table>
 <p>La separazione serve a una cosa precisa: il motore <em>estende</em> l'interprete registrando i propri built-in
@@ -467,6 +471,8 @@ take profit, quale è venuto prima? Il dato non c'è, quindi serve un'ipotesi. Q
 raggiunge per primo. Un ordine eseguito può attivarne altri sul resto del percorso: un'entrata eseguita all'open rende
 attivo il suo <code>strategy.exit</code> già nella stessa barra. Se la barra apre <em>oltre</em> il livello (un gap), l'ordine si esegue
 all'open, non al livello: il prezzo non è mai passato di lì.</p>
+<p>I livelli di limit, stop e trailing vengono arrotondati al tick del simbolo (<code>MinTick</code>), come fa TradingView:
+uno stop calcolato a <code>95.0137</code> con tick 0.05 diventa <code>95</code>.</p>
 
 <h3 id="ordini">Tipi di ordine</h3>
 <table>
@@ -507,19 +513,65 @@ commissioni, <em>run-up</em> (massimo guadagno latente) e <em>drawdown</em> (mas
 separatore (<code>,</code> <code>;</code> tab) si riconosce dall'intestazione, il tempo può essere unix in secondi o millisecondi o una data ISO (UTC).</p>
 
 <!-- ───────────────────────────────────────────── -->
-<h2 id="fase5">Fase 5 — Output e metriche <span class="badge next">prossima</span></h2>
-<p>Il motore produce già trade ed equity in memoria; la fase 5 li scrive in CSV, calcola le metriche e, soprattutto,
-<strong>valida</strong> il tutto contro TradingView.</p>
+<h2 id="fase5">Fase 5 — Output e metriche <span class="badge done">fatto</span></h2>
+<p>Il risultato di un backtest diventa quattro file CSV e un riepilogo di metriche. Lo stesso motore si usa da riga di comando,
+via HTTP o da codice, e si può confrontare con TradingView trade per trade.</p>
+
+<h3 id="lancio">Come si lancia</h3>
+<pre><code>backtest --script strategia.pine --data ohlcv.csv --out risultati
+         [--mintick 0.01] [--input "Fast SMA=20"] [--compare tradingview.csv --utc-offset +02:00]</code></pre>
+<p>Il comando (<code>Backtester.Cli</code>) stampa il riepilogo e scrive i CSV; con <code>--compare</code> confronta i trade con
+l'export di TradingView ed esce con codice 2 se differiscono. Gli stessi dati sono disponibili via HTTP:</p>
+<table>
+  <tr><th>Endpoint</th><th>Risposta</th></tr>
+  <tr><td><code>POST /api/backtest</code></td><td>JSON con impostazioni, metriche, input usati, trade chiusi e aperti</td></tr>
+  <tr><td><code>POST /api/backtest/csv</code></td><td>zip con i quattro CSV</td></tr>
+  <tr><td><code>POST /api/backtest/strategy001</code></td><td>come il primo, con la strategia di esempio</td></tr>
+</table>
+<p>Tutti accettano <code>multipart/form-data</code> con <code>script</code> (file .pine), <code>data</code> (CSV OHLCV), <code>inputs</code>
+(JSON opzionale, es. <code>{"Fast SMA": 20}</code>) e <code>minTick</code>. Gli errori rispondono 400 indicando la fase (<code>lexer</code>,
+<code>parser</code>, <code>runtime</code>, <code>data</code>, <code>inputs</code>) e la posizione: riga, colonna e, a runtime, barra.</p>
+
+<h3>File prodotti</h3>
+<table>
+  <tr><th>File</th><th>Contenuto</th></tr>
+  <tr><td><code>trades.csv</code></td><td>un trade per riga: entrata/uscita (id, ora, barra, prezzo), quantità, profitto e %, profitto cumulato,
+  commissioni, run-up, drawdown, commenti; i trade ancora aperti in fondo con <code>status = open</code></td></tr>
+  <tr><td><code>equity.csv</code></td><td>per ogni barra: close, equity, posizione, profitto latente, drawdown dal picco</td></tr>
+  <tr><td><code>metrics.csv</code></td><td>coppie <code>metric,value</code> con tutte le metriche qui sotto</td></tr>
+  <tr><td><code>plots.csv</code></td><td>per ogni barra il valore di ogni <code>plot()</code> dello script (utile per controllare gli indicatori)</td></tr>
+</table>
+<p>Formato: separatore virgola, punto decimale, orari ISO 8601 in UTC, campo vuoto dove il valore manca.</p>
+
+<h3>Metriche</h3>
 <table>
   <tr><th>Metrica</th><th>Definizione</th></tr>
-  <tr><td>Net profit</td><td>Σ profitti dei trade chiusi (al netto delle commissioni)</td></tr>
-  <tr><td>Profit factor</td><td>profitto lordo / perdita lorda: sopra 1 la strategia guadagna più di quanto perde</td></tr>
-  <tr><td>Win rate</td><td>trade vincenti / trade chiusi</td></tr>
-  <tr><td>Max drawdown</td><td>massima discesa dell'equity da un picco precedente: max(picco − equity)</td></tr>
+  <tr><td>Net profit</td><td>Σ profitti dei trade chiusi, al netto delle commissioni (anche in % del capitale iniziale)</td></tr>
+  <tr><td>Profit factor</td><td>profitto lordo / perdita lorda: sopra 1 la strategia guadagna più di quanto perde (assente se non ci sono perdite)</td></tr>
+  <tr><td>Percent profitable</td><td>trade vincenti / trade chiusi</td></tr>
+  <tr><td>Avg trade, avg win, avg loss</td><td>medie del profitto; il loro rapporto (avg win / avg loss) dice quanto rende un trade buono rispetto a uno cattivo</td></tr>
+  <tr><td>Max drawdown</td><td>massima discesa dell'equity da un picco precedente: max(picco − equity), anche in % del picco</td></tr>
+  <tr><td>Max run-up</td><td>la misura opposta: massima salita da un minimo precedente</td></tr>
+  <tr><td>Buy &amp; hold</td><td>variazione del prezzo dalla prima all'ultima chiusura: il termine di paragone "non fare nulla"</td></tr>
+  <tr><td>Sharpe</td><td>media / deviazione standard dei rendimenti mensili in eccesso sul tasso privo di rischio (2% annuo)</td></tr>
+  <tr><td>Sortino</td><td>come Sharpe, ma al denominatore solo la volatilità dei mesi negativi: non penalizza i rialzi</td></tr>
 </table>
-<p>I <strong>golden test</strong> eseguono una strategia sugli stessi dati esportati da TradingView e confrontano trade per trade con la
-sua "List of trades". È l'unico modo per scoprire le differenze sottili (inizializzazione di una media, un caso limite del broker)
-che i test scritti a mano non trovano.</p>
+<div class="note">Drawdown e run-up sono misurati sull'equity alla chiusura di ogni barra. TradingView considera anche gli estremi
+intrabar, quindi può riportare drawdown leggermente più grandi.</div>
+
+<h3 id="golden">Confronto con TradingView (golden test)</h3>
+<p>I test scritti a mano verificano che il codice faccia ciò che <em>pensiamo</em> faccia TradingView. I <strong>golden test</strong>
+verificano ciò che TradingView fa <em>davvero</em>: stessa strategia, stesse barre, e si confrontano i trade uno per uno con la sua
+"List of trades". È l'unico modo per scoprire le differenze sottili, come l'inizializzazione di una media o un caso limite del broker.</p>
+<ul>
+  <li><code>TradingViewTrades</code> legge l'export CSV della List of trades, sia nel formato vecchio (<code>Contracts</code>, <code>Profit</code>)
+  sia nel nuovo (<code>Position size</code>, <code>Net P&amp;L</code>), in qualsiasi valuta.</li>
+  <li><code>GoldenComparison</code> confronta in ordine direzione, prezzi (tolleranza mezzo tick), quantità, profitto e orari. TradingView
+  esporta gli orari nel fuso del grafico: va indicato l'offset, oppure si imposta il grafico su UTC prima di esportare.</li>
+  <li>L'ultimo trade se ancora aperto viene ignorato: dipende solo da dove finiscono i dati.</li>
+  <li>Ogni sottocartella di <code>Backtester.Engine.Tests/Golden/</code> (<code>strategy.pine</code>, <code>ohlcv.csv</code>, <code>tradingview.csv</code>,
+  <code>case.json</code> opzionale) diventa un caso eseguito dai test. Il README nella cartella spiega come esportare i file.</li>
+</ul>
 
 <!-- ───────────────────────────────────────────── -->
 <h2 id="limiti">Limiti noti</h2>
@@ -532,7 +584,8 @@ che i test scritti a mano non trovano.</p>
   <li>Broker: niente margin call, niente <code>oca_name</code> tra ordini diversi, niente "bar magnifier" (dati a timeframe inferiore per il
   percorso intrabar), quantità frazionarie senza arrotondamento al lotto minimo.</li>
   <li>Comportamenti da confermare con i golden test: ripartenza di EMA/RMA dopo un <code>na</code>, calcolo della size con
-  <code>percent_of_equity</code>.</li>
+  <code>percent_of_equity</code>, arrotondamento al tick dei prezzi degli ordini, formula esatta di Sharpe e Sortino.
+  L'infrastruttura c'è, ma nel repository non ci sono ancora casi reali esportati da TradingView.</li>
 </ul>
 </div>
 <p>Il piano completo e il registro delle decisioni sono in <code>ROADMAP.md</code> nella radice del repository.</p>

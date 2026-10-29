@@ -166,8 +166,6 @@ public sealed class Broker(double minTick = 0.01) : IBarHooks
     public void BeforeBar(BarContext context)
     {
         _context = context;
-        if (double.IsNaN(_peakEquity))
-            _peakEquity = Settings.InitialCapital;
 
         var bar = context.Bar;
         FillMarketOrders(bar.Open);
@@ -192,11 +190,12 @@ public sealed class Broker(double minTick = 0.01) : IBarHooks
             FillMarketOrders(bar.Close);
 
         var equity = EquityAt(bar.Close);
-        _peakEquity = Math.Max(_peakEquity, equity);
+        // Not before the first script run: strategy() sets the initial capital there
+        _peakEquity = Math.Max(double.IsNaN(_peakEquity) ? Settings.InitialCapital : _peakEquity, equity);
         var drawdown = _peakEquity - equity;
         MaxDrawdown = Math.Max(MaxDrawdown, drawdown);
 
-        _equity.Add(new EquityPoint(context.BarIndex, bar.Time, equity, PositionSize, OpenProfitAt(bar.Close), drawdown));
+        _equity.Add(new EquityPoint(context.BarIndex, bar.Time, bar.Close, equity, PositionSize, OpenProfitAt(bar.Close), drawdown));
     }
 
     /// <summary>State seen by the script <paramref name="offset"/> bars back (for <c>strategy.equity[1]</c>).</summary>
@@ -434,13 +433,13 @@ public sealed class Broker(double minTick = 0.01) : IBarHooks
 
         if (order.Stop is { } stop && !order.StopTriggered)
         {
-            if (Cross(from, to, stop, upward: buy) is not { } price)
+            if (Cross(from, to, ToTick(stop), upward: buy) is not { } price)
                 return null;
             // A plain stop order fills; a stop-limit only arms its limit
             return new Trigger(order, price, FillsOrder: order.Limit is null, IsLimit: false, order.Comment);
         }
 
-        return order.Limit is { } limit && Cross(from, to, limit, upward: !buy) is { } fill
+        return order.Limit is { } limit && Cross(from, to, ToTick(limit), upward: !buy) is { } fill
             ? new Trigger(order, fill, FillsOrder: true, IsLimit: true, order.Comment)
             : null;
     }
@@ -456,7 +455,7 @@ public sealed class Broker(double minTick = 0.01) : IBarHooks
 
         void Consider(double? level, bool upward, bool isLimit, string? comment)
         {
-            if (level is { } l && Cross(from, to, l, upward) is { } price
+            if (level is { } l && Cross(from, to, ToTick(l), upward) is { } price
                 && (best is null || Math.Abs(price - from) < Math.Abs(best.Value.Price - from)))
                 best = new Trigger(order, price, FillsOrder: true, isLimit, comment ?? order.Comment);
         }
@@ -474,6 +473,10 @@ public sealed class Broker(double minTick = 0.01) : IBarHooks
     /// Price at which the move from <paramref name="from"/> to <paramref name="to"/> reaches <paramref name="level"/>
     /// going up (or down); <paramref name="from"/> itself when already beyond it (a gap), null when not reached.
     /// </summary>
+    /// <summary>Order prices are rounded to the nearest tick, as TradingView does.</summary>
+    private double ToTick(double price)
+        => MinTick > 0 ? Math.Round(Math.Round(price / MinTick) * MinTick, 10) : price;
+
     private static double? Cross(double from, double to, double level, bool upward)
     {
         if (upward ? from >= level : from <= level)

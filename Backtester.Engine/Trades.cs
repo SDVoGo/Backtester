@@ -59,4 +59,4 @@ public sealed record ClosedTrade(
     string? ExitComment);
 
 /// <summary>Strategy state at the close of a bar.</summary>
-public sealed record EquityPoint(int Bar, long Time, double Equity, double PositionSize, double OpenProfit, double Drawdown);
+public sealed record EquityPoint(int Bar, long Time, double Close, double Equity, double PositionSize, double OpenProfit, double Drawdown);

@@ -11,6 +11,8 @@ builder.Services.AddControllers()
                                         opts.JsonSerializerOptions.Converters.Add(
                                             new JsonStringEnumConverter()
                                         );
+                                        // Results may hold NaN (e.g. a trade's percent profit on a zero price)
+                                        opts.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
                                     });
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();

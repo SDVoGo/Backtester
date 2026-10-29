@@ -20,7 +20,8 @@ o quando si prende una decisione che cambia il piano (vedi [Registro decisioni](
 | `Pine.Core.Tests`   | xUnit         | Test di `Pine.Core`                                               |
 | `Backtester`        | ASP.NET (API) | Host: endpoint per lexer/parser, documentazione su `/docs`        |
 | `Backtester.Engine` | class library | Broker simulato, `strategy.*`, lettura OHLCV da CSV, `Backtest.Run` |
-| `Backtester.Engine.Tests` | xUnit   | Test del motore e del lettore CSV                                 |
+| `Backtester.Engine.Tests` | xUnit   | Test del motore, dei report e dei golden test                     |
+| `Backtester.Cli`    | console       | Comando `backtest`: esegue una strategia e scrive i CSV           |
 
 La documentazione delle fasi e della teoria (`Backtester/Resources/docs.html`, servita su `GET /docs`)
 va aggiornata insieme a questo file quando una fase avanza.
@@ -99,11 +100,13 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 - [x] `strategy001.pine` eseguito per intero (test di coerenza)
 - Non gestiti: margin call, `oca_name` tra ordini diversi, bar magnifier, arrotondamento della quantità al lotto minimo
 
-### Fase 5 — Output e validazione
-- [ ] CSV lista trade (entry/exit, prezzo, qty, P&L, MAE/MFE opzionali)
-- [ ] CSV equity curve e riepilogo metriche (net profit, drawdown, win rate, profit factor)
-- [ ] Golden test: confronto con la "List of trades" esportata da TradingView sugli stessi dati
-- [ ] Host: endpoint / CLI `backtest --script x.pine --data ohlcv.csv --out risultati/`
+### Fase 5 — Output e validazione ✅
+- [x] `trades.csv` (entry/exit, prezzo, qty, P&L, cumulato, commissioni, run-up/drawdown, trade aperti in fondo), `equity.csv`, `plots.csv`
+- [x] `StrategyMetrics` e `metrics.csv`: net profit, profit factor, % profittevoli, medie, max drawdown/run-up, buy & hold, Sharpe/Sortino mensili
+- [x] Golden test: parser della "List of trades" di TradingView (formato vecchio e nuovo), `GoldenComparison`, casi in `Backtester.Engine.Tests/Golden/`
+- [x] CLI `backtest --script x.pine --data ohlcv.csv --out risultati/ [--input "T=v"] [--compare tv.csv]` (`Backtester.Cli`)
+- [x] Endpoint `POST api/backtest` (JSON), `api/backtest/csv` (zip), `api/backtest/strategy001`
+- [ ] **Primo golden test reale**: esportare da TradingView dati + List of trades di `strategy001.pine` (vedi `Golden/README.md`)
 
 ### Dopo l'MVP
 - Ottimizzazione parametri (`input.*` in griglia), eventuale compilazione AST → expression tree
@@ -139,3 +142,7 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 | 2026-10-29 | Size `percent_of_equity`/`cash` calcolata al piazzamento dell'ordine (close della barra, o livello per limit/stop). Da confermare con i golden test. |
 | 2026-10-29 | `strategy.*` con storia letti da uno snapshot salvato dopo i fill di inizio barra; a offset 0 il valore è calcolato al momento. |
 | 2026-10-29 | I trade aperti a fine dati restano aperti (`BacktestResult.OpenTrades`), come su TradingView. |
+| 2026-10-29 | Prezzi di limit/stop/trailing arrotondati al tick (`MinTick`), come TradingView. Da confermare con i golden test. |
+| 2026-10-29 | Drawdown e run-up misurati sull'equity alla chiusura di ogni barra (TradingView usa anche gli estremi intrabar). Sharpe/Sortino su rendimenti mensili in UTC con risk-free 2%. |
+| 2026-10-29 | Golden test: confronto in ordine dei soli trade chiusi; tolleranza sui prezzi di mezzo tick; orari confrontati nel fuso del grafico esportato. |
+| 2026-10-29 | CSV di output: virgola, punto decimale, orari ISO 8601 UTC, campi vuoti per i valori mancanti. |

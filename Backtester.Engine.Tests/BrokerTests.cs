@@ -149,6 +149,18 @@ public class BrokerTests
     }
 
     [Fact]
+    public void Exit_StopIsRoundedToTheTick()
+    {
+        var result = Run("""
+            if bar_index == 0
+                strategy.entry("L", strategy.long)
+                strategy.exit("X", "L", stop = 95.0137)
+            """, Bars((100, 100, 100, 100), (100, 101, 94, 100)), options: new BacktestOptions { MinTick = 0.05 });
+
+        Assert.Equal(95, Assert.Single(result.Trades).ExitPrice, 9);
+    }
+
+    [Fact]
     public void Exit_GapThroughStop_FillsAtOpen()
     {
         var result = Run("""

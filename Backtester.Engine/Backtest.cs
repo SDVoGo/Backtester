@@ -1,3 +1,4 @@
+using Backtester.Engine.Reporting;
 using Pine.Core.Runtime;
 using Pine.Core.Runtime.Builtins;
 using Pine.Core.Syntax;
@@ -20,6 +21,7 @@ public sealed record BacktestResult(
     IReadOnlyList<ClosedTrade> Trades,
     IReadOnlyList<Trade> OpenTrades,
     IReadOnlyList<EquityPoint> Equity,
+    StrategyMetrics Metrics,
     ExecutionResult Execution);
 
 public static class Backtest
@@ -33,6 +35,7 @@ public static class Backtest
         StrategyBuiltins.Register(registry, broker);
 
         var execution = Interpreter.Run(script, bars, registry, options.Inputs, broker);
-        return new BacktestResult(broker.Settings, broker.ClosedTrades, broker.OpenTrades, broker.Equity, execution);
+        var metrics = StrategyMetrics.Compute(broker.Settings, broker.ClosedTrades, broker.OpenTrades, broker.Equity, bars);
+        return new BacktestResult(broker.Settings, broker.ClosedTrades, broker.OpenTrades, broker.Equity, metrics, execution);
     }
 }
