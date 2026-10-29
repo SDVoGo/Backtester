@@ -38,7 +38,7 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 
 ## Fasi
 
-### Fase 0 — Fondamenta ✅ / 🚧
+### Fase 0 — Fondamenta ✅
 - [x] Separazione in progetti (`Pine.Core`, `Pine.Core.Tests`, host `Backtester`)
 - [x] Lexer riscritto come scanner manuale (niente regex, complessità lineare)
 - [x] Token `NEWLINE` / `INDENT` / `DEDENT` (blocchi a indentazione, multipli di 4 spazi)
@@ -50,12 +50,17 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 - [x] Riga/colonna su ogni token ed errori con posizione
 - [x] Test xUnit del lexer
 
-### Fase 1 — Parser
-- [ ] AST (record C#) per espressioni e istruzioni
-- [ ] Parser a discesa ricorsiva per le istruzioni, Pratt per le espressioni
-- [ ] Precedenze Pine: `?:` < `or` < `and` < `== !=` < `< <= > >=` < `+ -` < `* / %` < unari < `[]`/chiamata/`.`
-- [ ] Argomenti nominali (`title = "x"`), dichiarazioni multiple separate da virgola su una riga
-- [ ] Errori di sintassi con riga/colonna; test su `test002.pine` e su script di strategia
+### Fase 1 — Parser ✅
+- [x] AST (record C#, `Pine.Core.Syntax`) per espressioni e istruzioni, con posizione su ogni nodo
+- [x] Parser a discesa ricorsiva per le istruzioni, Pratt per le espressioni (`Pine.Core.Parsing`)
+- [x] Precedenze Pine: `?:` < `or` < `and` < `== !=` < `< <= > >=` < `+ -` < `* / %` < unari < `[]`/chiamata/`.`
+- [x] Argomenti nominali (`title = "x"`), dichiarazioni multiple separate da virgola su una riga
+- [x] Dichiarazioni tipizzate (`var float x`, `float[]`, `array<float>`), tuple `[a, b] = f()`
+- [x] `if`/`else if`/`else`, `switch` con e senza soggetto, `for ... to ... by`, `for ... in`, `while`, `break`/`continue`
+- [x] `if`/`switch`/`for`/`while` usabili come valore (`x = if ...`)
+- [x] Funzioni utente su una riga o a blocco, parametri tipizzati e con default
+- [x] Errori di sintassi con riga/colonna; `AstPrinter` (S-expression) per test e debug
+- [x] Test su `test002.pine` e sulla strategia di esempio `strategy001.pine`; endpoint `api/parser/parse`
 
 ### Fase 2 — Interprete (modello di esecuzione Pine)
 - [ ] Esecuzione dello script una volta per barra
@@ -97,3 +102,7 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 | 2026-10-29 | `na` resta un identificatore (in Pine è sia costante sia funzione `na(x)`).                |
 | 2026-10-29 | Tipi (`int float bool string color`) e qualificatori (`series simple const`) restano identificatori: li distingue il parser, perché `color`/`input` sono anche namespace. |
 | 2026-10-29 | I commenti non producono token; solo `//@version=N` (su riga propria) diventa `VERSION`.  |
+| 2026-10-29 | `if`/`switch`/`for`/`while` sono nodi espressione (`IfExpr`, ...): il valore è l'ultima espressione del blocco eseguito. Ammessi come valore solo a inizio lato destro di dichiarazioni e assegnazioni. |
+| 2026-10-29 | `else if` è rappresentato come blocco `else` con un solo `IfExpr`: niente nodo dedicato.  |
+| 2026-10-29 | `[a, b]` è sempre `TupleExpr`: sia tupla di ritorno sia array letterale negli argomenti (`options = [...]`). |
+| 2026-10-29 | `import`, `export`, `type`, `method`, `enum` producono un errore esplicito "not supported yet". |

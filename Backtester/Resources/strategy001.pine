@@ -1,0 +1,33 @@
+// Strategia di esempio per il backtester: incrocio di medie con stop ATR
+//@version=6
+strategy("SMA Cross + ATR Stop", overlay = true, initial_capital = 10000, default_qty_type = strategy.percent_of_equity, default_qty_value = 100, commission_type = strategy.commission.percent, commission_value = 0.05)
+
+fastLen = input.int(10, "Fast SMA", minval = 1)
+slowLen = input.int(30, "Slow SMA", minval = 1)
+atrLen  = input.int(14, "ATR Length")
+atrMult = input.float(2.0, "ATR Stop Multiplier", step = 0.1)
+
+float fast = ta.sma(close, fastLen)
+float slow = ta.sma(close, slowLen)
+float atr  = ta.atr(atrLen)
+
+var float stopLevel = na
+var int tradesCount = 0
+
+longSignal  = ta.crossover(fast, slow)
+exitSignal  = ta.crossunder(fast, slow)
+
+if longSignal and strategy.position_size == 0
+    stopLevel := close - atr * atrMult
+    tradesCount += 1
+    strategy.entry("Long", strategy.long)
+
+if strategy.position_size > 0
+    stopLevel := math.max(stopLevel, close - atr * atrMult)
+    strategy.exit("Stop", "Long", stop = stopLevel)
+
+if exitSignal
+    strategy.close("Long", comment = "Cross down")
+
+plot(fast, "Fast", color = #26c477)
+plot(slow, "Slow", color = #2692c4)
