@@ -10,6 +10,16 @@ public sealed record ExecutionResult(
     IReadOnlyDictionary<string, Value> Globals,
     IReadOnlyDictionary<string, Value> Inputs);
 
+/// <summary>Called around each script execution; the backtest broker fills orders here.</summary>
+public interface IBarHooks
+{
+    /// <summary>Before the script runs on the bar: the bar's open, high and low are already known.</summary>
+    void BeforeBar(BarContext context);
+
+    /// <summary>After the script ran on the bar, at its close.</summary>
+    void AfterBar(BarContext context);
+}
+
 /// <summary>
 /// Tree-walking interpreter following Pine's execution model:
 /// the script runs once per bar; every variable is a <see cref="Series"/>;
@@ -33,18 +43,26 @@ public sealed class Interpreter
     private InstanceState _state;
     private Flow _flow;
 
-    private Interpreter(Script script, IReadOnlyList<Bar> bars, BuiltinRegistry builtins, IReadOnlyDictionary<string, Value>? inputs)
+    private readonly IBarHooks? _hooks;
+
+    private Interpreter(
+        Script script, IReadOnlyList<Bar> bars, BuiltinRegistry builtins, IReadOnlyDictionary<string, Value>? inputs, IBarHooks? hooks)
     {
         _script = script;
         _builtins = builtins;
+        _hooks = hooks;
         _context = new BarContext(bars, inputs);
         _state = _rootState;
     }
 
     /// <param name="inputs">Overrides for <c>input.*</c> default values, keyed by input title.</param>
     public static ExecutionResult Run(
-        Script script, IReadOnlyList<Bar> bars, BuiltinRegistry? builtins = null, IReadOnlyDictionary<string, Value>? inputs = null)
-        => new Interpreter(script, bars, builtins ?? BuiltinRegistry.CreateDefault(), inputs).Run();
+        Script script,
+        IReadOnlyList<Bar> bars,
+        BuiltinRegistry? builtins = null,
+        IReadOnlyDictionary<string, Value>? inputs = null,
+        IBarHooks? hooks = null)
+        => new Interpreter(script, bars, builtins ?? BuiltinRegistry.CreateDefault(), inputs, hooks).Run();
 
     private int BarIndex => _context.BarIndex;
 
@@ -62,12 +80,15 @@ public sealed class Interpreter
             _globals = new Environment(null, isGlobal: true);
             _state = _rootState;
             _flow = Flow.Normal;
+            _hooks?.BeforeBar(_context);
 
             foreach (var statement in _script.Statements)
             {
                 if (statement is not FunctionDeclaration)
                     Execute(statement, _globals);
             }
+
+            _hooks?.AfterBar(_context);
         }
 
         var globals = _globals.Variables.ToDictionary(v => v.Key, v => v.Value.Current);

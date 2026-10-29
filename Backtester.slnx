@@ -1,4 +1,6 @@
 <Solution>
+  <Project Path="Backtester.Engine.Tests/Backtester.Engine.Tests.csproj" />
+  <Project Path="Backtester.Engine/Backtester.Engine.csproj" />
   <Project Path="Backtester/Backtester.csproj" />
   <Project Path="Pine.Core.Tests/Pine.Core.Tests.csproj" />
   <Project Path="Pine.Core/Pine.Core.csproj" />
