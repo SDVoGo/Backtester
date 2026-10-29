@@ -62,13 +62,18 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 - [x] Errori di sintassi con riga/colonna; `AstPrinter` (S-expression) per test e debug
 - [x] Test su `test002.pine` e sulla strategia di esempio `strategy001.pine`; endpoint `api/parser/parse`
 
-### Fase 2 — Interprete (modello di esecuzione Pine)
-- [ ] Esecuzione dello script una volta per barra
-- [ ] Ogni variabile è una **serie** con storia accessibile via `x[n]`
-- [ ] `var` persistente tra barre; variabili normali reinizializzate ad ogni barra
-- [ ] Stato **per punto di chiamata** per funzioni con memoria (`ta.*` e funzioni utente che le usano)
-- [ ] Propagazione di `na`; tipi base `int`, `float`, `bool`, `string`, `color`
-- [ ] Variabili built-in: `open high low close volume time bar_index barstate.*`
+### Fase 2 — Interprete (modello di esecuzione Pine) ✅
+- [x] Esecuzione dello script una volta per barra (`Pine.Core.Runtime.Interpreter`)
+- [x] Ogni variabile è una **serie** (`Series`, ring buffer fino a `max_bars_back` = 5000) con storia via `x[n]`
+- [x] `x[n]` su variabili, built-in (`close[1]`), parametri di funzione ed espressioni qualsiasi (`(a + b)[1]`)
+- [x] `var`/`varip` persistenti tra barre; variabili normali reinizializzate ad ogni barra
+- [x] Stato **per punto di chiamata** (`InstanceState`) per funzioni utente e built-in con memoria
+- [x] Propagazione di `na`; tipi `int`, `float`, `bool`, `string`, `color`, tuple (`Value`)
+- [x] Funzioni utente: argomenti nominali e di default, tuple di ritorno, divieto di ricorsione e di modifica dei globali
+- [x] `if`/`switch`/`for`/`for in`/`while` con valore, `break`/`continue`
+- [x] Variabili built-in: `open high low close volume hl2 hlc3 ohlc4 time bar_index last_bar_index barstate.*`
+- [x] Registro built-in estendibile (`BuiltinRegistry`); `na()`, `nz()`, `plot()` (registra i valori), `ta.sma` di riferimento
+- [x] Errori di runtime con riga, colonna e barra (`PineRuntimeException`)
 
 ### Fase 3 — Built-in
 - [ ] `input.*`, `math.*`, `str.tostring`, `nz`, `na`, `fixnan`
@@ -106,3 +111,8 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 | 2026-10-29 | `else if` è rappresentato come blocco `else` con un solo `IfExpr`: niente nodo dedicato.  |
 | 2026-10-29 | `[a, b]` è sempre `TupleExpr`: sia tupla di ritorno sia array letterale negli argomenti (`options = [...]`). |
 | 2026-10-29 | `import`, `export`, `type`, `method`, `enum` producono un errore esplicito "not supported yet". |
+| 2026-10-29 | Storia delle variabili locali: `x[1]` è il valore dell'ultima esecuzione del blocco/chiamata su una barra precedente (come in Pine). Più scritture nella stessa barra sovrascrivono lo slot. |
+| 2026-10-29 | Divisione: sempre `float` (semantica v6); divisione e modulo per zero danno `na`. `+ - * %` tra int restano int. |
+| 2026-10-29 | Confronti con `na` (anche `==`/`!=`) danno `false`; `na` in una condizione vale `false`. `and`/`or` sono lazy (v6). |
+| 2026-10-29 | `plot()` non è un no-op: registra i valori per barra (`ExecutionResult.Plots`). Serve per i test e potrà finire nel CSV. |
+| 2026-10-29 | Stato per call-site indicizzato per identità del nodo AST (`ReferenceEqualityComparer`), non per uguaglianza strutturale dei record. |
