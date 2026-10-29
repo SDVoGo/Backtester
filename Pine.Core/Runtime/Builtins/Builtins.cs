@@ -134,6 +134,7 @@ public sealed class BuiltinRegistry
         StringBuiltins.Register(registry);
         ColorBuiltins.Register(registry);
         TaBuiltins.Register(registry);
+        TimeBuiltins.Register(registry);
         DrawingBuiltins.Register(registry);
         return registry;
     }

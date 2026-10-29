@@ -1,0 +1,6 @@
+{
+  "data": "btcusdt_1h.csv",
+  "minTick": 0.01,
+  "utcOffset": "+00:00",
+  "profitTolerance": 0.01
+}

@@ -106,7 +106,8 @@ public class GoldenTests(ITestOutputHelper output)
 
     /// <summary>
     /// Runs every case in <c>Golden/</c> (see Golden/README.md): a strategy, the bars and TradingView's
-    /// list of trades exported from the same chart. Passes with no cases.
+    /// list of trades exported from the same chart. A case still waiting for <c>tradingview.csv</c>
+    /// only runs the strategy. Passes with no cases.
     /// </summary>
     [Fact]
     public void GoldenCases()
@@ -119,15 +120,23 @@ public class GoldenTests(ITestOutputHelper output)
         var failures = new List<string>();
         foreach (var directory in cases)
         {
+            var name = Path.GetFileName(directory);
             var settings = ReadSettings(directory);
             var result = Backtest.Run(
                 Parser.Parse(File.ReadAllText(Path.Combine(directory, "strategy.pine"))),
-                OhlcvCsv.ReadFile(Path.Combine(directory, "ohlcv.csv")),
+                OhlcvCsv.ReadFile(DataPath(directory, settings.Data)),
                 new BacktestOptions { MinTick = settings.MinTick, Inputs = settings.Inputs });
+
+            var expected = Path.Combine(directory, "tradingview.csv");
+            if (!File.Exists(expected))
+            {
+                output.WriteLine($"{name}: {result.Trades.Count} trades, waiting for tradingview.csv");
+                continue;
+            }
 
             var report = GoldenComparison.Compare(
                 result.Trades,
-                TradingViewTrades.ReadFile(Path.Combine(directory, "tradingview.csv")),
+                TradingViewTrades.ReadFile(expected),
                 new GoldenOptions
                 {
                     ChartUtcOffset = settings.UtcOffset,
@@ -135,27 +144,39 @@ public class GoldenTests(ITestOutputHelper output)
                     ProfitTolerance = settings.ProfitTolerance,
                 });
 
-            output.WriteLine($"{Path.GetFileName(directory)}: {report}");
+            output.WriteLine($"{name}: {report}");
             if (!report.Matches)
-                failures.Add($"{Path.GetFileName(directory)}: {report}");
+                failures.Add($"{name}: {report}");
         }
 
         Assert.True(failures.Count == 0, string.Join('\n', failures));
     }
 
-    private sealed record CaseSettings(double MinTick, TimeSpan UtcOffset, double? ProfitTolerance, IReadOnlyDictionary<string, Value>? Inputs);
+    /// <summary>The bars file in the case folder, or one of the shared samples (Backtester/Resources).</summary>
+    private static string DataPath(string directory, string file)
+    {
+        var local = Path.Combine(directory, file);
+        return File.Exists(local) ? local : Path.Combine(AppContext.BaseDirectory, "Samples", file);
+    }
 
-    /// <summary>Optional <c>case.json</c>: <c>{"minTick": 0.01, "utcOffset": "+02:00", "profitTolerance": 0.01, "inputs": {...}}</c>.</summary>
+    private sealed record CaseSettings(
+        string Data, double MinTick, TimeSpan UtcOffset, double? ProfitTolerance, IReadOnlyDictionary<string, Value>? Inputs);
+
+    /// <summary>
+    /// Optional <c>case.json</c>:
+    /// <c>{"data": "ohlcv.csv", "minTick": 0.01, "utcOffset": "+02:00", "profitTolerance": 0.01, "inputs": {...}}</c>.
+    /// </summary>
     private static CaseSettings ReadSettings(string directory)
     {
         var path = Path.Combine(directory, "case.json");
         if (!File.Exists(path))
-            return new CaseSettings(0.01, TimeSpan.Zero, 0.01, null);
+            return new CaseSettings("ohlcv.csv", 0.01, TimeSpan.Zero, 0.01, null);
 
         using var json = JsonDocument.Parse(File.ReadAllText(path));
         var root = json.RootElement;
 
         return new CaseSettings(
+            root.TryGetProperty("data", out var data) ? data.GetString()! : "ohlcv.csv",
             root.TryGetProperty("minTick", out var tick) ? tick.GetDouble() : 0.01,
             root.TryGetProperty("utcOffset", out var offset) ? TimeSpan.Parse(offset.GetString()!.TrimStart('+')) : TimeSpan.Zero,
             root.TryGetProperty("profitTolerance", out var tolerance) ? tolerance.ValueKind == JsonValueKind.Null ? null : tolerance.GetDouble() : 0.01,

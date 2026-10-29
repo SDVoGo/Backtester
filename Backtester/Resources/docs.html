@@ -511,6 +511,9 @@ commissioni, <em>run-up</em> (massimo guadagno latente) e <em>drawdown</em> (mas
 <p><code>OhlcvCsv</code> legge CSV con intestazione; l'export dei grafici di TradingView funziona così com'è. Le colonne si trovano per nome
 (<code>time</code>/<code>date</code>/<code>datetime</code>/<code>timestamp</code>, <code>open</code>, <code>high</code>, <code>low</code>, <code>close</code>, <code>volume</code> opzionale), il
 separatore (<code>,</code> <code>;</code> tab) si riconosce dall'intestazione, il tempo può essere unix in secondi o millisecondi o una data ISO (UTC).</p>
+<p>Nel repository c'è un dataset reale di esempio, <code>Backtester/Resources/btcusdt_1h.csv</code>: 3000 candele BTCUSDT a 1 ora dal
+1° gennaio al 4 maggio 2024, scaricate dall'API pubblica di Binance. Sono le stesse barre che TradingView mostra per
+<code>BINANCE:BTCUSDT</code>, quindi si prestano al confronto. Gli endpoint lo usano quando non si carica un file di dati.</p>
 
 <!-- ───────────────────────────────────────────── -->
 <h2 id="fase5">Fase 5 — Output e metriche <span class="badge done">fatto</span></h2>
@@ -569,6 +572,9 @@ verificano ciò che TradingView fa <em>davvero</em>: stessa strategia, stesse ba
   <li><code>GoldenComparison</code> confronta in ordine direzione, prezzi (tolleranza mezzo tick), quantità, profitto e orari. TradingView
   esporta gli orari nel fuso del grafico: va indicato l'offset, oppure si imposta il grafico su UTC prima di esportare.</li>
   <li>L'ultimo trade se ancora aperto viene ignorato: dipende solo da dove finiscono i dati.</li>
+  <li>Una strategia da confrontare va limitata a una finestra di date con <code>timestamp()</code>: TradingView carica anni di storia e
+  senza finestra farebbe trade anche prima dei nostri dati, partendo con un capitale diverso. Il caso
+  <code>strategy001-btcusdt-1h</code> è già pronto così e aspetta solo l'export della List of trades.</li>
   <li>Ogni sottocartella di <code>Backtester.Engine.Tests/Golden/</code> (<code>strategy.pine</code>, <code>ohlcv.csv</code>, <code>tradingview.csv</code>,
   <code>case.json</code> opzionale) diventa un caso eseguito dai test. Il README nella cartella spiega come esportare i file.</li>
 </ul>
@@ -579,8 +585,9 @@ verificano ciò che TradingView fa <em>davvero</em>: stessa strategia, stesse ba
 <ul>
   <li>Non supportati: <code>request.security</code> (multi-timeframe), <code>import</code> di librerie, tipi utente (<code>type</code>), <code>method</code>,
   <code>enum</code>, <code>map</code>/<code>matrix</code>, array come oggetti.</li>
-  <li>Rimandati: <code>ta.pivothigh</code>/<code>pivotlow</code>, funzioni di data e ora (<code>year</code>, <code>hour</code>, ...), <code>syminfo.*</code>
-  tranne <code>syminfo.mintick</code>.</li>
+  <li>Rimandati: <code>ta.pivothigh</code>/<code>pivotlow</code>, <code>syminfo.*</code> tranne <code>syminfo.mintick</code> e
+  <code>syminfo.timezone</code>. Il fuso dell'exchange è sempre UTC (corretto per le crypto): <code>timestamp()</code>, <code>year</code>,
+  <code>hour</code>, ... accettano comunque un fuso esplicito.</li>
   <li>Broker: niente margin call, niente <code>oca_name</code> tra ordini diversi, niente "bar magnifier" (dati a timeframe inferiore per il
   percorso intrabar), quantità frazionarie senza arrotondamento al lotto minimo.</li>
   <li>Comportamenti da confermare con i golden test: ripartenza di EMA/RMA dopo un <code>na</code>, calcolo della size con

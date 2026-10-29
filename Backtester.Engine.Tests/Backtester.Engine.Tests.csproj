@@ -30,7 +30,9 @@
 
   <ItemGroup>
     <None Include="..\Backtester\Resources\*.pine" Link="Samples\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Backtester\Resources\*.csv" Link="Samples\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Golden\*\**" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Snapshots\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -1,5 +1,11 @@
+using System.Globalization;
 using System.Text.Json.Serialization;
 using Scalar.AspNetCore;
+
+// Form and query values are bound with the current culture: on an Italian machine "0.01" would
+// read as 1 (dot = thousands separator). The API always uses invariant numbers.
+CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
 var builder = WebApplication.CreateBuilder(args);
 

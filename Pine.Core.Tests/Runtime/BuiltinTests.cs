@@ -95,6 +95,32 @@ public class BuiltinTests
     public void Colors(string source, string expected)
         => Assert.Equal(expected, Global(source));
 
+    // 2024-01-15 00:00 UTC
+    private const string Jan15 = "1705276800000";
+
+    [Theory]
+    [InlineData("x = timestamp(2024, 1, 15)", Jan15)]
+    [InlineData("x = timestamp(\"UTC\", 2024, 1, 15, 0, 0)", Jan15)]
+    [InlineData("x = timestamp(\"GMT+2\", 2024, 1, 15, 2, 0)", Jan15)]
+    [InlineData("x = timestamp(\"UTC-03:30\", 2024, 1, 14, 20, 30)", Jan15)]
+    [InlineData("x = timestamp(\"2024-01-15\")", Jan15)]
+    [InlineData("x = timestamp(\"2024-01-15T02:00:00+02:00\")", Jan15)]
+    [InlineData("x = timestamp(2024, 13, 1)", "1735689600000")]
+    [InlineData("x = year(timestamp(2024, 3, 10))", "2024")]
+    [InlineData("x = dayofweek(timestamp(2024, 1, 15))", "2")]
+    [InlineData("x = dayofweek.monday", "2")]
+    [InlineData("x = hour(timestamp(2024, 1, 15, 10, 0), \"GMT+2\")", "12")]
+    [InlineData("x = weekofyear(timestamp(2024, 1, 15))", "3")]
+    [InlineData("x = minute", "4")]
+    [InlineData("x = year", "1970")]
+    [InlineData("x = time_close - time", "60000")]
+    public void Time(string source, string expected)
+        => Assert.Equal(expected, Global(source));
+
+    [Fact]
+    public void Time_UnknownTimezone()
+        => Assert.Throws<PineRuntimeException>(() => Run("x = hour(time, \"Mars/Olympus\")"));
+
     [Fact]
     public void FixNan()
         => AssertSeries([1, 2, 2, 4, 5], Plot("plot(fixnan(close == 3 ? na : close))"));

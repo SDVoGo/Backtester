@@ -88,7 +88,8 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 - [x] `ta.sma ema rma wma vwma tr atr rsi stdev highest lowest crossover crossunder cross change mom roc rising falling cum barssince valuewhen macd bb supertrend`
 - [x] Funzioni grafiche e di alert come no-op; namespace di disegno (`line.*`, `label.*`, `box.*`, `table.*`, `shape.*`, ...) no-op in blocco
 - [x] `test002.pine` eseguito per intero (test di integrazione)
-- Rimandati: `ta.pivothigh/pivotlow` (semantica da verificare su TradingView), `syminfo.*`, funzioni di tempo (`year`, `hour`, `dayofweek`, ...)
+- [x] Tempo: `timestamp()` (numerico, con fuso, da stringa), `year month dayofmonth dayofweek hour minute second weekofyear` come variabili e funzioni, `time_close`, `dayofweek.*`
+- Rimandati: `ta.pivothigh/pivotlow` (semantica da verificare su TradingView), `syminfo.*` (tranne `mintick` e `timezone`)
 
 ### Fase 4 — Motore di backtest (`Backtester.Engine`) ✅
 - [x] Lettura OHLCV da CSV (`OhlcvCsv`): colonne per nome, separatore auto, tempo unix s/ms o data ISO
@@ -106,7 +107,9 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 - [x] Golden test: parser della "List of trades" di TradingView (formato vecchio e nuovo), `GoldenComparison`, casi in `Backtester.Engine.Tests/Golden/`
 - [x] CLI `backtest --script x.pine --data ohlcv.csv --out risultati/ [--input "T=v"] [--compare tv.csv]` (`Backtester.Cli`)
 - [x] Endpoint `POST api/backtest` (JSON), `api/backtest/csv` (zip), `api/backtest/strategy001`
-- [ ] **Primo golden test reale**: esportare da TradingView dati + List of trades di `strategy001.pine` (vedi `Golden/README.md`)
+- [x] Dataset reale `Backtester/Resources/btcusdt_1h.csv` (BINANCE BTCUSDT 1h, 2024-01-01 → 2024-05-04); test su dati reali con verifica indipendente dei segnali e snapshot di regressione
+- [x] Caso `Golden/strategy001-btcusdt-1h` pronto (strategia limitata a una finestra di date)
+- [ ] **Primo golden test reale**: esportare la List of trades da TradingView per quel caso (vedi `Golden/README.md`)
 
 ### Dopo l'MVP
 - Ottimizzazione parametri (`input.*` in griglia), eventuale compilazione AST → expression tree
@@ -146,3 +149,8 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 | 2026-10-29 | Drawdown e run-up misurati sull'equity alla chiusura di ogni barra (TradingView usa anche gli estremi intrabar). Sharpe/Sortino su rendimenti mensili in UTC con risk-free 2%. |
 | 2026-10-29 | Golden test: confronto in ordine dei soli trade chiusi; tolleranza sui prezzi di mezzo tick; orari confrontati nel fuso del grafico esportato. |
 | 2026-10-29 | CSV di output: virgola, punto decimale, orari ISO 8601 UTC, campi vuoti per i valori mancanti. |
+| 2026-10-29 | Dati di esempio reali da Binance invece che sintetici: sono le stesse barre di `BINANCE:BTCUSDT` su TradingView, quindi servono anche per i golden test. |
+| 2026-10-29 | Fuso dell'exchange fisso a UTC finché non esiste `syminfo` completo; le funzioni di tempo accettano un fuso esplicito. |
+| 2026-10-29 | Strategie da confrontare con TradingView limitate a una finestra di date: TradingView fa trade su tutta la storia caricata e il capitale divergerebbe. |
+| 2026-10-29 | L'host lavora in cultura invariante: con la cultura italiana `minTick=0.01` veniva letto come 1. |
+| 2026-10-29 | Snapshot di regressione dei trade (`Snapshots/`), da rigenerare con `BACKTEST_UPDATE_SNAPSHOTS=1` solo per cambiamenti voluti. |

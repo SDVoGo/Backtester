@@ -12,8 +12,11 @@ public sealed class BacktestForm
     /// <summary>PineScript strategy (.pine).</summary>
     public IFormFile? Script { get; set; }
 
-    /// <summary>OHLCV bars (.csv) with a header: time, open, high, low, close[, volume].</summary>
-    public required IFormFile Data { get; set; }
+    /// <summary>
+    /// OHLCV bars (.csv) with a header: time, open, high, low, close[, volume].
+    /// Without a file the sample dataset is used: BINANCE:BTCUSDT 1h, 2024-01-01 to 2024-05-04.
+    /// </summary>
+    public IFormFile? Data { get; set; }
 
     /// <summary>Optional JSON object of input title → value, e.g. {"Fast SMA": 20}.</summary>
     public string? Inputs { get; set; }
@@ -34,6 +37,8 @@ public sealed record BacktestResponse(
 [Route("api/backtest")]
 public class BacktestController : ControllerBase
 {
+    private const string SampleData = "btcusdt_1h.csv";
+
     /// <summary>Runs a strategy on uploaded bars; returns settings, metrics and trades.</summary>
     [HttpPost]
     [Consumes("multipart/form-data")]
@@ -46,7 +51,7 @@ public class BacktestController : ControllerBase
     public Task<IActionResult> RunCsv([FromForm] BacktestForm form)
         => Execute(form, null, result => File(Zip(result), "application/zip", "backtest.zip"));
 
-    /// <summary>Runs the sample strategy001.pine on uploaded bars (the script field is ignored).</summary>
+    /// <summary>Runs the sample strategy001.pine (the script field is ignored); without data, on the sample dataset.</summary>
     [HttpPost("strategy001")]
     [Consumes("multipart/form-data")]
     public Task<IActionResult> Strategy001([FromForm] BacktestForm form)
@@ -71,7 +76,7 @@ public class BacktestController : ControllerBase
                 source = await ReadText(form.Script);
             }
 
-            var bars = OhlcvCsv.Parse(await ReadText(form.Data));
+            var bars = OhlcvCsv.Parse(form.Data is null ? Utils.Resources.ReadText(SampleData) : await ReadText(form.Data));
             var options = new BacktestOptions
             {
                 MinTick = form.MinTick,

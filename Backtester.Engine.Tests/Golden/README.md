@@ -7,10 +7,27 @@ sugli stessi dati. `GoldenTests.GoldenCases` confronta i trade uno per uno.
 Golden/
   sma-cross-btc-1h/
     strategy.pine      lo script, identico a quello su TradingView
-    ohlcv.csv          le barre esportate dal grafico
+    ohlcv.csv          le barre esportate dal grafico (oppure "data" in case.json)
     tradingview.csv    la "List of trades" esportata dallo Strategy Tester
     case.json          opzionale
 ```
+
+Un caso senza `tradingview.csv` viene comunque eseguito (verifica che lo script giri) e il test
+scrive "waiting for tradingview.csv".
+
+## Caso pronto: `strategy001-btcusdt-1h`
+
+Manca solo l'export di TradingView. Le barre sono già nel repository (`Backtester/Resources/btcusdt_1h.csv`,
+BTCUSDT 1h da Binance dal 2024-01-01 al 2024-05-04): sono le stesse che TradingView mostra per `BINANCE:BTCUSDT`.
+
+1. Apri `BINANCE:BTCUSDT` (proprio Binance, non un altro exchange), timeframe **1h**, fuso del grafico **UTC**.
+2. Aggiungi come strategia il contenuto di `strategy001-btcusdt-1h/strategy.pine` (con gli input di default).
+   La strategia opera solo tra il 15 gennaio e il 1° maggio 2024: il resto della storia caricata non conta.
+3. Assicurati che il grafico abbia caricato la storia almeno da inizio 2024 (scorri indietro se serve).
+4. Strategy Tester → *List of trades* → export CSV → salva come `strategy001-btcusdt-1h/tradingview.csv`.
+5. Esegui i test: `GoldenTests.GoldenCases` stampa le differenze trade per trade.
+
+Il backtester produce 57 trade in quella finestra.
 
 ## Come preparare un caso
 
@@ -35,6 +52,7 @@ per lo slippage e come tolleranza sui prezzi (metà tick). `profitTolerance: nul
 
 ## Cosa aspettarsi
 
-TradingView calcola gli indicatori anche sulle barre precedenti all'inizio dell'export: se lo script usa medie
-lunghe, i primi segnali possono differire. Conviene esportare molta storia e, se serve, ignorare la parte iniziale
-limitando la strategia con una condizione sulla data.
+TradingView calcola gli indicatori anche sulle barre precedenti all'inizio dei nostri dati, e sul grafico
+fa trade su tutta la storia caricata. Per questo una strategia da confrontare va **limitata a una finestra di date**
+con `timestamp()`, che inizi abbastanza dopo l'inizio dei dati da stabilizzare le medie (vedi `strategy001-btcusdt-1h`):
+così su entrambi i lati il primo trade parte con lo stesso capitale.

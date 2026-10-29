@@ -1,0 +1,43 @@
+// strategy001.pine limitata a una finestra di date, per il confronto con TradingView.
+// Il grafico di TradingView carica anni di storia: senza finestra la strategia farebbe trade anche prima
+// dei nostri dati e il capitale (quindi le quantità) non coinciderebbe. I 14 giorni prima dell'inizio
+// della finestra servono a stabilizzare le medie (SMA 30, ATR 14) su entrambi i lati.
+// Da usare su BINANCE:BTCUSDT, timeframe 1h.
+//@version=6
+strategy("SMA Cross + ATR Stop (golden)", overlay = true, initial_capital = 10000, default_qty_type = strategy.percent_of_equity, default_qty_value = 100, commission_type = strategy.commission.percent, commission_value = 0.05)
+
+fastLen = input.int(10, "Fast SMA", minval = 1)
+slowLen = input.int(30, "Slow SMA", minval = 1)
+atrLen  = input.int(14, "ATR Length")
+atrMult = input.float(2.0, "ATR Stop Multiplier", step = 0.1)
+
+windowStart = timestamp("UTC", 2024, 1, 15, 0, 0)
+windowEnd   = timestamp("UTC", 2024, 5, 1, 0, 0)
+inWindow    = time >= windowStart and time < windowEnd
+
+float fast = ta.sma(close, fastLen)
+float slow = ta.sma(close, slowLen)
+float atr  = ta.atr(atrLen)
+
+var float stopLevel = na
+
+longSignal  = ta.crossover(fast, slow)
+exitSignal  = ta.crossunder(fast, slow)
+
+if longSignal and strategy.position_size == 0 and inWindow
+    stopLevel := close - atr * atrMult
+    strategy.entry("Long", strategy.long)
+
+if strategy.position_size > 0
+    stopLevel := math.max(stopLevel, close - atr * atrMult)
+    strategy.exit("Stop", "Long", stop = stopLevel)
+
+if exitSignal
+    strategy.close("Long", comment = "Cross down")
+
+// Fine finestra: chiude tutto, così l'ultimo trade termina sulla stessa barra su entrambi i lati
+if time >= windowEnd
+    strategy.close_all(comment = "End")
+
+plot(fast, "Fast", color = #26c477)
+plot(slow, "Slow", color = #2692c4)
