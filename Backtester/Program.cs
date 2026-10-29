@@ -32,4 +32,8 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// Documentation of the phases and the theory behind them
+app.MapGet("/docs", () => Results.Content(Utils.Resources.ReadText("docs.html"), "text/html; charset=utf-8"))
+   .ExcludeFromDescription();
+
 app.Run();

@@ -18,8 +18,12 @@ o quando si prende una decisione che cambia il piano (vedi [Registro decisioni](
 |---------------------|---------------|-------------------------------------------------------------------|
 | `Pine.Core`         | class library | Linguaggio: lexer, parser, AST, interprete, built-in              |
 | `Pine.Core.Tests`   | xUnit         | Test di `Pine.Core`                                               |
-| `Backtester`        | ASP.NET (API) | Host: endpoint per lanciare lexer/parser/backtest                 |
-| `Backtester.Engine` | class library | *(fase 4)* Broker simulato, ordini, posizioni, metriche, CSV      |
+| `Backtester`        | ASP.NET (API) | Host: endpoint per lexer/parser, documentazione su `/docs`        |
+| `Backtester.Engine` | class library | Broker simulato, `strategy.*`, lettura OHLCV da CSV, `Backtest.Run` |
+| `Backtester.Engine.Tests` | xUnit   | Test del motore e del lettore CSV                                 |
+
+La documentazione delle fasi e della teoria (`Backtester/Resources/docs.html`, servita su `GET /docs`)
+va aggiornata insieme a questo file quando una fase avanza.
 
 ## Subset di Pine supportato (MVP)
 
@@ -85,12 +89,15 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 - [x] `test002.pine` eseguito per intero (test di integrazione)
 - Rimandati: `ta.pivothigh/pivotlow` (semantica da verificare su TradingView), `syminfo.*`, funzioni di tempo (`year`, `hour`, `dayofweek`, ...)
 
-### Fase 4 — Motore di backtest (`Backtester.Engine`)
-- [ ] Lettura OHLCV da CSV
-- [ ] `strategy()` (capitale iniziale, qty di default, commissioni, slippage, pyramiding, `process_orders_on_close`)
-- [ ] `strategy.entry`, `strategy.exit` (stop/limit/trail), `strategy.close`, `strategy.close_all`, `strategy.order`
-- [ ] Esecuzione di default all'open della barra successiva; stop/limit intrabar su OHLC
-- [ ] `strategy.position_size`, `strategy.equity`, `strategy.opentrades`, ...
+### Fase 4 — Motore di backtest (`Backtester.Engine`) ✅
+- [x] Lettura OHLCV da CSV (`OhlcvCsv`): colonne per nome, separatore auto, tempo unix s/ms o data ISO
+- [x] `strategy()` (capitale iniziale, qty di default fixed/cash/percent_of_equity, commissioni, slippage, pyramiding, `process_orders_on_close`)
+- [x] `strategy.entry` (inversione, pyramiding), `strategy.order`, `strategy.exit` (limit/stop, profit/loss in tick, trailing, qty/qty_percent), `strategy.close` (`immediately`), `strategy.close_all`, `strategy.cancel`, `strategy.cancel_all`
+- [x] Esecuzione di default all'open della barra successiva; stop/limit/stop-limit lungo il percorso intrabar open → estremo vicino → estremo lontano → close; gap eseguiti all'open
+- [x] `strategy.position_size position_avg_price equity netprofit openprofit opentrades closedtrades wintrades losstrades grossprofit grossloss max_drawdown ...`, anche con storia (`strategy.equity[1]`); `strategy.opentrades.*(n)`, `strategy.closedtrades.*(n)`; `syminfo.mintick`
+- [x] Trade chiusi con commissioni, run-up e drawdown; equity per barra
+- [x] `strategy001.pine` eseguito per intero (test di coerenza)
+- Non gestiti: margin call, `oca_name` tra ordini diversi, bar magnifier, arrotondamento della quantità al lotto minimo
 
 ### Fase 5 — Output e validazione
 - [ ] CSV lista trade (entry/exit, prezzo, qty, P&L, MAE/MFE opzionali)
@@ -126,3 +133,9 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 | 2026-10-29 | Override degli input indicizzati per **titolo** dell'input; gli input senza titolo non sono sovrascrivibili. `input.source` si sovrascrive col nome del campo (`"high"`, `"hl2"`). |
 | 2026-10-29 | Namespace di disegno: funzioni no-op che restituiscono `na` (così `na(myLine)` funziona) e costanti stringa col proprio nome (`line.style_dotted`). Le lookup non modificano il registro: un `BuiltinRegistry` è condivisibile tra run. |
 | 2026-10-29 | `format.mintick` assume tick 0.01 finché non esiste `syminfo` (fase 4). |
+| 2026-10-29 | Il motore si aggancia all'interprete con `IBarHooks` (`BeforeBar`/`AfterBar`) e registra i propri built-in: `Pine.Core` non conosce il broker. |
+| 2026-10-29 | Broker modellato sull'emulatore di TradingView (ordini dalla barra successiva, percorso intrabar verso l'estremo più vicino) per rendere i risultati confrontabili nei golden test. |
+| 2026-10-29 | Le uscite chiudono i trade in FIFO, spezzando l'ultimo se parziali. Quando la posizione si azzera, gli `strategy.exit` pendenti vengono cancellati. |
+| 2026-10-29 | Size `percent_of_equity`/`cash` calcolata al piazzamento dell'ordine (close della barra, o livello per limit/stop). Da confermare con i golden test. |
+| 2026-10-29 | `strategy.*` con storia letti da uno snapshot salvato dopo i fill di inizio barra; a offset 0 il valore è calcolato al momento. |
+| 2026-10-29 | I trade aperti a fine dati restano aperti (`BacktestResult.OpenTrades`), come su TradingView. |

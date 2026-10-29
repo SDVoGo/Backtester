@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backtester PineScript — Documentazione</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --surface: #ffffff; --text: #1f2328; --muted: #5d6470; --border: #e3e0d8;
+    --accent: #0b6e4f; --accent-soft: #e2f1ea; --warn: #9a5b00; --warn-soft: #fbefd9;
+    --code-bg: #f3f1ec; --line: #8b929c;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181c; --surface: #1d2025; --text: #e6e6e3; --muted: #9aa1ab; --border: #2e3239;
+      --accent: #4cc497; --accent-soft: #1d3a2f; --warn: #e3a64b; --warn-soft: #3a2e1b;
+      --code-bg: #23272d; --line: #7d848e;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); max-width: 1180px; margin: 0 auto; }
+  nav {
+    position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+    padding: 32px 20px; border-right: 1px solid var(--border);
+  }
+  nav .brand { font-weight: 700; font-size: 15px; margin-bottom: 20px; }
+  nav a { display: block; color: var(--muted); text-decoration: none; font-size: 14px; padding: 4px 0; }
+  nav a:hover { color: var(--accent); }
+  nav a.sub { padding-left: 14px; font-size: 13px; }
+  main { padding: 40px 48px 96px; min-width: 0; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 8px; }
+  h2 { font-size: 25px; margin: 64px 0 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 18px; margin: 32px 0 8px; }
+  p, li { max-width: 72ch; }
+  .lead { font-size: 18px; color: var(--muted); max-width: 64ch; }
+  a { color: var(--accent); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre {
+    font-family: var(--mono); font-size: 13.5px; line-height: 1.55; background: var(--code-bg);
+    border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; max-width: 100%;
+  }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; margin: 16px 0; font-size: 14.5px; display: block; overflow-x: auto; max-width: 100%; }
+  th, td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .03em; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; vertical-align: middle; margin-left: 8px; }
+  .done { background: var(--accent-soft); color: var(--accent); }
+  .next { background: var(--warn-soft); color: var(--warn); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin: 16px 0; }
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+  .note.warn { border-color: var(--warn); background: var(--warn-soft); }
+  .formula { font-family: var(--mono); font-size: 14px; background: var(--surface); border: 1px dashed var(--border); padding: 10px 14px; border-radius: 8px; margin: 10px 0; overflow-x: auto; }
+  figure { margin: 24px 0; }
+  figure svg { width: 100%; height: auto; max-width: 820px; display: block; }
+  figcaption { font-size: 13.5px; color: var(--muted); margin-top: 6px; max-width: 72ch; }
+  svg text { fill: var(--text); font-family: system-ui, sans-serif; }
+  svg .muted { fill: var(--muted); }
+  svg .box { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
+  svg .box-accent { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+  svg .stroke { stroke: var(--line); fill: none; stroke-width: 1.5; }
+  svg .stroke-accent { stroke: var(--accent); fill: none; stroke-width: 2.5; }
+  svg .fill-accent { fill: var(--accent); }
+  svg .fill-line { fill: var(--line); }
+  @media (max-width: 860px) {
+    .layout { display: block; }
+    nav { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 20px 16px; }
+    nav a.sub { display: none; }
+    main { padding: 24px 16px 64px; }
+    h1 { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <div class="brand">Backtester PineScript</div>
+  <a href="#panoramica">Panoramica</a>
+  <a href="#struttura">Struttura della soluzione</a>
+  <a href="#fase0">Fase 0 — Lexer</a>
+  <a class="sub" href="#indentazione">Indentazione</a>
+  <a href="#fase1">Fase 1 — Parser</a>
+  <a class="sub" href="#pratt">Parsing di Pratt</a>
+  <a href="#fase2">Fase 2 — Interprete</a>
+  <a class="sub" href="#serie">Serie e storia</a>
+  <a class="sub" href="#callsite">Stato per call-site</a>
+  <a class="sub" href="#na">Il valore na</a>
+  <a href="#fase3">Fase 3 — Built-in</a>
+  <a class="sub" href="#indicatori">Indicatori ta.*</a>
+  <a class="sub" href="#input">Input e override</a>
+  <a href="#fase4">Fase 4 — Motore di backtest</a>
+  <a class="sub" href="#timing">Quando si esegue un ordine</a>
+  <a class="sub" href="#percorso">Percorso intrabar</a>
+  <a class="sub" href="#ordini">Tipi di ordine</a>
+  <a class="sub" href="#costi">Size, commissioni, slippage</a>
+  <a class="sub" href="#csv">Dati OHLCV</a>
+  <a href="#fase5">Fase 5 — Output e metriche</a>
+  <a href="#limiti">Limiti noti</a>
+</nav>
+
+<main>
+<h1>Come funziona il backtester</h1>
+<p class="lead">Uno script PineScript, una serie di candele OHLCV, e un motore che esegue lo script barra per barra
+simulando un broker. Questa pagina spiega ogni fase: cosa fa, come è costruita e la teoria che c'è sotto.</p>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 id="panoramica">Panoramica</h2>
+<p>Il percorso è quello di un qualsiasi linguaggio interpretato, con in più il modello di esecuzione di Pine
+(lo script gira una volta per ogni barra) e un broker che trasforma le chiamate <code>strategy.*</code> in operazioni.</p>
+
+<figure>
+<svg viewBox="0 0 820 190" role="img" aria-label="Pipeline: sorgente, lexer, parser, interprete, broker, risultati">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" class="fill-line"/>
+    </marker>
+  </defs>
+  <rect class="box" x="10" y="40" width="100" height="56" rx="8"/>
+  <text x="60" y="65" text-anchor="middle" font-size="14" font-weight="600">.pine</text>
+  <text x="60" y="84" text-anchor="middle" font-size="12" class="muted">testo</text>
+
+  <rect class="box" x="150" y="40" width="110" height="56" rx="8"/>
+  <text x="205" y="65" text-anchor="middle" font-size="14" font-weight="600">Lexer</text>
+  <text x="205" y="84" text-anchor="middle" font-size="12" class="muted">token</text>
+
+  <rect class="box" x="300" y="40" width="110" height="56" rx="8"/>
+  <text x="355" y="65" text-anchor="middle" font-size="14" font-weight="600">Parser</text>
+  <text x="355" y="84" text-anchor="middle" font-size="12" class="muted">AST</text>
+
+  <rect class="box-accent" x="450" y="40" width="130" height="56" rx="8"/>
+  <text x="515" y="65" text-anchor="middle" font-size="14" font-weight="600">Interprete</text>
+  <text x="515" y="84" text-anchor="middle" font-size="12" class="muted">barra per barra</text>
+
+  <rect class="box-accent" x="620" y="40" width="90" height="56" rx="8"/>
+  <text x="665" y="65" text-anchor="middle" font-size="14" font-weight="600">Broker</text>
+  <text x="665" y="84" text-anchor="middle" font-size="12" class="muted">ordini</text>
+
+  <rect class="box" x="740" y="40" width="72" height="56" rx="8"/>
+  <text x="776" y="65" text-anchor="middle" font-size="14" font-weight="600">CSV</text>
+  <text x="776" y="84" text-anchor="middle" font-size="12" class="muted">trade</text>
+
+  <line class="stroke" x1="110" y1="68" x2="148" y2="68" marker-end="url(#arrow)"/>
+  <line class="stroke" x1="260" y1="68" x2="298" y2="68" marker-end="url(#arrow)"/>
+  <line class="stroke" x1="410" y1="68" x2="448" y2="68" marker-end="url(#arrow)"/>
+  <line class="stroke" x1="580" y1="68" x2="618" y2="68" marker-end="url(#arrow)"/>
+  <line class="stroke" x1="710" y1="68" x2="738" y2="68" marker-end="url(#arrow)"/>
+
+  <rect class="box" x="450" y="138" width="130" height="40" rx="8"/>
+  <text x="515" y="163" text-anchor="middle" font-size="13">OHLCV da CSV</text>
+  <line class="stroke" x1="515" y1="138" x2="515" y2="98" marker-end="url(#arrow)"/>
+  <path class="stroke" d="M 580 158 L 665 158 L 665 98" marker-end="url(#arrow)"/>
+</svg>
+<figcaption>Le prime due fasi lavorano una volta sul testo; interprete e broker lavorano insieme, una barra alla volta.</figcaption>
+</figure>
+
+<table>
+  <tr><th>Fase</th><th>Cosa produce</th><th>Stato</th></tr>
+  <tr><td>0 — Lexer</td><td>Flusso di token con posizione, inclusi <code>INDENT</code>/<code>DEDENT</code></td><td><span class="badge done">fatto</span></td></tr>
+  <tr><td>1 — Parser</td><td>Albero sintattico (AST)</td><td><span class="badge done">fatto</span></td></tr>
+  <tr><td>2 — Interprete</td><td>Esecuzione barra per barra, serie, stato</td><td><span class="badge done">fatto</span></td></tr>
+  <tr><td>3 — Built-in</td><td><code>input.* math.* str.* color.* ta.*</code>, no-op grafici</td><td><span class="badge done">fatto</span></td></tr>
+  <tr><td>4 — Motore</td><td>Broker simulato, trade, equity</td><td><span class="badge done">fatto</span></td></tr>
+  <tr><td>5 — Output</td><td>CSV, metriche, golden test con TradingView, CLI/endpoint</td><td><span class="badge next">prossima</span></td></tr>
+</table>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 id="struttura">Struttura della soluzione</h2>
+<table>
+  <tr><th>Progetto</th><th>Contenuto</th></tr>
+  <tr><td><code>Pine.Core</code></td><td>Il linguaggio: <code>Lexing</code>, <code>Parsing</code>, <code>Syntax</code> (AST), <code>Runtime</code> (interprete, valori, serie) e <code>Runtime/Builtins</code>. Non sa nulla di ordini o broker.</td></tr>
+  <tr><td><code>Backtester.Engine</code></td><td>Broker simulato, <code>strategy.*</code>, lettura OHLCV da CSV, punto d'ingresso <code>Backtest.Run</code>.</td></tr>
+  <tr><td><code>Backtester</code></td><td>Host ASP.NET: endpoint per lexer e parser, questa pagina su <code>/docs</code>.</td></tr>
+  <tr><td><code>*.Tests</code></td><td>Test xUnit di ogni livello, compresi script completi (<code>test002.pine</code>, <code>strategy001.pine</code>).</td></tr>
+</table>
+<p>La separazione serve a una cosa precisa: il motore <em>estende</em> l'interprete registrando i propri built-in
+e agganciandosi a ogni barra (<code>IBarHooks</code>), senza che <code>Pine.Core</code> debba conoscerlo.</p>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 id="fase0">Fase 0 — Lexer <span class="badge done">fatto</span></h2>
+<p>Il lexer (o <em>scanner</em>) trasforma il testo in una sequenza di <strong>token</strong>: le "parole" del linguaggio
+(identificatori, numeri, stringhe, operatori, parole chiave), ognuna con riga e colonna per i messaggi d'errore.</p>
+<pre><code>fast = ta.sma(close, 10)
+
+IDENT(fast) ASSIGN IDENT(ta) DOT IDENT(sma) LPAREN IDENT(close) COMMA INT(10) RPAREN NEWLINE</code></pre>
+
+<h3>Scanner scritto a mano</h3>
+<p>Il lexer è un ciclo che guarda un carattere alla volta e decide che token sta iniziando (<code>Lexer.cs</code>).
+Una versione precedente usava le regex; scriverlo a mano ha due vantaggi:</p>
+<ul>
+  <li><strong>Complessità lineare.</strong> Ogni carattere viene letto un numero costante di volte: O(n) sulla lunghezza del file.</li>
+  <li><strong>Contesto.</strong> Per l'indentazione bisogna sapere se si è a inizio riga, dentro parentesi, ecc.:
+  è stato facile da tenere in variabili, mentre con le regex non è naturale.</li>
+</ul>
+<p>Dettagli gestiti: numeri <code>.5</code>, <code>1.</code>, <code>1e-3</code>; stringhe con apici singoli o doppi ed escape;
+colori <code>#RRGGBB[AA]</code>; commenti a fine riga; la direttiva <code>//@version=6</code> diventa un token <code>VERSION</code>.</p>
+
+<h3 id="indentazione">Indentazione: la regola dell'off-side</h3>
+<p>Come Python, Pine delimita i blocchi con l'indentazione invece che con parentesi graffe. La tecnica classica
+(la "off-side rule") è far generare al lexer dei token sintetici: il parser vede blocchi espliciti.</p>
+<ul>
+  <li>Il lexer tiene una <strong>pila dei livelli di indentazione</strong>. Una riga più indentata della cima emette <code>INDENT</code> e spinge il livello;
+  una meno indentata emette un <code>DEDENT</code> per ogni livello tolto.</li>
+  <li>Un livello vale 4 spazi (un tab conta come 4).</li>
+  <li><strong>Righe di continuazione</strong>: dentro <code>(</code> o <code>[</code> i ritorni a capo si ignorano; una riga indentata
+  con un numero di spazi <em>non multiplo di 4</em> continua l'istruzione precedente (è la convenzione di Pine).</li>
+</ul>
+<pre><code>if close &gt; open          IF IDENT GT IDENT NEWLINE
+    x := 1                INDENT IDENT REASSIGN INT NEWLINE
+y = 2                     DEDENT IDENT ASSIGN INT NEWLINE</code></pre>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 id="fase1">Fase 1 — Parser <span class="badge done">fatto</span></h2>
+<p>Il parser legge i token e costruisce l'<strong>albero sintattico astratto</strong> (AST): una struttura ad albero
+che rappresenta il programma senza i dettagli di superficie (parentesi, virgole, spazi).
+I nodi sono <code>record</code> C# in <code>Pine.Core.Syntax</code>, ognuno con la propria posizione nel sorgente.</p>
+<pre><code>x = a + b * 2
+
+(declare x (+ a (* b 2)))</code></pre>
+<p>La forma qui sopra è quella che stampa <code>AstPrinter</code> (S-expression), usata nei test e dall'endpoint <code>api/parser/parse</code>.</p>
+
+<h3>Discesa ricorsiva per le istruzioni</h3>
+<p>Le istruzioni sono riconosciute con un parser a <strong>discesa ricorsiva</strong>: una funzione per costrutto
+(<code>ParseIf</code>, <code>ParseFor</code>, <code>ParseFunction</code>, ...), che si chiamano tra loro seguendo la grammatica.
+È il metodo più semplice da leggere e da correggere a mano. La particolarità di Pine è che <code>if</code>, <code>switch</code>,
+<code>for</code> e <code>while</code> producono un valore (<code>x = if c ... else ...</code>), per cui nell'AST sono espressioni
+(<code>IfExpr</code>, ...) il cui valore è l'ultima espressione del blocco eseguito.</p>
+
+<h3 id="pratt">Parsing di Pratt per le espressioni</h3>
+<p>Per le espressioni con operatori la discesa ricorsiva pura richiederebbe una funzione per livello di precedenza.
+Il <strong>parsing di Pratt</strong> (o "precedence climbing") usa invece un solo ciclo guidato da una tabella:
+ogni operatore ha una <em>binding power</em>, e il parser continua ad "attaccare" operatori a destra
+finché trova operatori che legano più forte di quello corrente.</p>
+<pre><code>ParseExpression(minPower):
+    left = ParsePrefix()                 // letterale, identificatore, (expr), -x, not x
+    while next operator binds stronger than minPower:
+        op = consume()
+        right = ParseExpression(power(op))   // +1 per associatività a sinistra
+        left = Binary(op, left, right)
+    return left</code></pre>
+<table>
+  <tr><th>Precedenza (bassa → alta)</th><th>Operatori</th></tr>
+  <tr><td>1</td><td><code>?:</code> (ternario, associativo a destra)</td></tr>
+  <tr><td>2</td><td><code>or</code></td></tr>
+  <tr><td>3</td><td><code>and</code></td></tr>
+  <tr><td>4</td><td><code>== !=</code></td></tr>
+  <tr><td>5</td><td><code>&lt; &lt;= &gt; &gt;=</code></td></tr>
+  <tr><td>6</td><td><code>+ -</code></td></tr>
+  <tr><td>7</td><td><code>* / %</code></td></tr>
+  <tr><td>8</td><td>unari <code>- + not</code></td></tr>
+  <tr><td>9</td><td>postfissi: storia <code>x[n]</code>, chiamata <code>f()</code>, membro <code>a.b</code></td></tr>
+</table>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 id="fase2">Fase 2 — Interprete <span class="badge done">fatto</span></h2>
+<p>L'interprete è un <strong>tree-walker</strong>: visita l'AST e calcola i valori nodo per nodo (<code>Interpreter.cs</code>).
+È più lento di un compilatore, ma molto più semplice da far evolvere e da debuggare; si potrà compilare l'AST
+più avanti se servirà velocità (vedi registro decisioni in <code>ROADMAP.md</code>).</p>
+
+<h3>Il modello di esecuzione di Pine</h3>
+<p>Uno script Pine non è un programma che gira una volta: <strong>gira una volta per ogni barra</strong>, dalla più vecchia
+alla più recente. Ogni esecuzione vede i dati di quella barra (<code>open</code>, <code>close</code>, ...) e il risultato delle
+esecuzioni precedenti.</p>
+<figure>
+<svg viewBox="0 0 820 150" role="img" aria-label="Lo script viene eseguito su ogni barra in sequenza">
+  <defs>
+    <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" class="fill-line"/>
+    </marker>
+  </defs>
+  <g>
+    <rect class="box" x="20" y="20" width="150" height="50" rx="8"/>
+    <text x="95" y="50" text-anchor="middle" font-size="13">script @ barra 0</text>
+    <rect class="box" x="220" y="20" width="150" height="50" rx="8"/>
+    <text x="295" y="50" text-anchor="middle" font-size="13">script @ barra 1</text>
+    <rect class="box" x="420" y="20" width="150" height="50" rx="8"/>
+    <text x="495" y="50" text-anchor="middle" font-size="13">script @ barra 2</text>
+    <rect class="box-accent" x="620" y="20" width="180" height="50" rx="8"/>
+    <text x="710" y="50" text-anchor="middle" font-size="13">… @ ultima barra</text>
+    <line class="stroke" x1="170" y1="45" x2="218" y2="45" marker-end="url(#arrow2)"/>
+    <line class="stroke" x1="370" y1="45" x2="418" y2="45" marker-end="url(#arrow2)"/>
+    <line class="stroke" x1="570" y1="45" x2="618" y2="45" marker-end="url(#arrow2)"/>
+  </g>
+  <text x="20" y="108" font-size="13" class="muted">Tra un'esecuzione e l'altra sopravvivono solo: la storia delle serie, le variabili var/varip e lo stato</text>
+  <text x="20" y="128" font-size="13" class="muted">dei call-site (es. la finestra di ta.sma). Tutto il resto viene ricalcolato da zero.</text>
+</svg>
+</figure>
+
+<h3 id="serie">Serie e operatore storico</h3>
+<p>Ogni variabile è una <strong>serie</strong>: oltre al valore corrente conserva i valori delle barre passate,
+leggibili con <code>x[n]</code> (<code>x[1]</code> = valore alla barra precedente). L'implementazione (<code>Series.cs</code>) è un
+<strong>ring buffer</strong>: un array circolare che cresce fino a <code>max_bars_back</code> = 5000 slot, poi sovrascrive il più vecchio.
+Lettura e scrittura sono O(1).</p>
+<ul>
+  <li>Più scritture nella stessa barra (riassegnazioni, iterazioni di un ciclo) sovrascrivono lo slot della barra.</li>
+  <li><code>x[n]</code> funziona anche su built-in (<code>close[1]</code>), parametri di funzione ed espressioni qualsiasi (<code>(a + b)[1]</code>):
+  in quest'ultimo caso l'interprete crea una serie nascosta legata a quel nodo.</li>
+  <li><code>var x = 0</code> si inizializza solo alla prima barra e poi mantiene il valore; una dichiarazione normale si ricalcola ogni volta.</li>
+</ul>
+
+<h3 id="callsite">Stato per call-site</h3>
+<p>Funzioni come <code>ta.sma</code> hanno memoria: devono ricordare gli ultimi <em>n</em> valori. Ma se la stessa funzione
+compare due volte, ogni occorrenza deve avere la sua memoria:</p>
+<pre><code>fast = ta.sma(close, 10)    // finestra di 10 valori
+slow = ta.sma(close, 30)    // un'altra finestra, indipendente</code></pre>
+<p>La soluzione di Pine, riprodotta qui, è legare lo stato al <strong>punto di chiamata</strong> nel codice (<code>InstanceState</code>):
+la chiave è il nodo dell'AST, confrontato per identità (<code>ReferenceEqualityComparer</code>), non per contenuto.
+Vale anche per le funzioni utente: chiamare <code>f()</code> da due punti diversi crea due istanze separate, ciascuna con
+le proprie variabili <code>var</code> e i propri <code>ta.*</code> interni.</p>
+<div class="note">Conseguenza importante (e uguale a TradingView): una funzione con memoria chiamata dentro un <code>if</code>
+si aggiorna <em>solo nelle barre in cui l'if è vero</em>. Per questo Pine avvisa di chiamare i <code>ta.*</code> a ogni barra.</div>
+
+<h3 id="na">Il valore <code>na</code></h3>
+<p><code>na</code> ("not available") è il "nessun valore" di Pine: è il risultato di <code>close[1]</code> sulla prima barra, di una
+media che non ha ancora abbastanza dati, di una divisione per zero. Le regole adottate (semantica Pine v6):</p>
+<ul>
+  <li>L'aritmetica con <code>na</code> dà <code>na</code>; anche <code>NaN</code> e gli infiniti diventano <code>na</code>.</li>
+  <li>I confronti con <code>na</code> (anche <code>==</code>) danno <code>false</code>; una condizione <code>na</code> vale <code>false</code>.</li>
+  <li><code>and</code>/<code>or</code> sono lazy: il lato destro si valuta solo se serve.</li>
+  <li>La divisione dà sempre <code>float</code>; <code>+ - * %</code> tra interi restano interi.</li>
+</ul>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 id="fase3">Fase 3 — Built-in <span class="badge done">fatto</span></h2>
+<p>I built-in vivono in un <strong>registro</strong> (<code>BuiltinRegistry</code>): nome → funzione o variabile. Ogni gruppo ha il suo
+file (<code>MathBuiltins</code>, <code>TaBuiltins</code>, ...). Una funzione built-in riceve un <code>CallContext</code> con gli argomenti già
+legati ai nomi dei parametri e un accesso allo stato del proprio call-site (<code>call.State&lt;T&gt;()</code>).</p>
+<ul>
+  <li><strong>Variadiche</strong>: <code>math.max(a, b, c, ...)</code> accetta argomenti posizionali in più.</li>
+  <li><strong>No-op</strong>: tutto ciò che disegna (<code>plotshape</code>, <code>fill</code>, <code>bgcolor</code>, ...) è accettato e ignorato.
+  Interi namespace (<code>line.*</code>, <code>label.*</code>, <code>box.*</code>, <code>table.*</code>, <code>shape.*</code>, ...) sono no-op in blocco:
+  le funzioni restituiscono <code>na</code> (così <code>if na(myLine)</code> continua a funzionare) e le costanti valgono il proprio nome.</li>
+  <li><strong>Colori</strong>: non disegnano niente ma vanno calcolati, perché gli script li usano nelle espressioni (<code>color.new</code>, <code>color.rgb</code>, ...).</li>
+  <li><code>plot()</code> non è un no-op: registra il valore per barra, utile per test e debug.</li>
+</ul>
+
+<h3 id="indicatori">Indicatori <code>ta.*</code></h3>
+<p>Gli indicatori sono il cuore dei segnali di una strategia, e piccole differenze (come si inizializza una media, come si tratta un
+<code>na</code>) cambiano i trade. Per questo sono portati dalle <strong>implementazioni di riferimento del manuale Pine</strong>
+(<code>pine_ema</code>, <code>pine_supertrend</code>, ...), stranezze comprese. Internamente usano <code>double</code> con <code>NaN</code> al posto di
+<code>na</code> (<code>Indicators.cs</code>): le operazioni su <code>NaN</code> propagano da sole e i confronti con <code>NaN</code> sono già falsi, come in Pine.</p>
+
+<h3>Medie mobili</h3>
+<div class="formula">SMA(x, n)<sub>t</sub> = (x<sub>t</sub> + x<sub>t−1</sub> + … + x<sub>t−n+1</sub>) / n</div>
+<p>Media semplice: <code>na</code> finché non ci sono <em>n</em> valori, o se uno di essi è <code>na</code>.</p>
+<div class="formula">EMA<sub>t</sub> = α·x<sub>t</sub> + (1 − α)·EMA<sub>t−1</sub>  con α = 2/(n+1)  e primo valore = SMA(x, n)</div>
+<p>Media esponenziale: ogni valore pesa (1−α) volte il successivo, quindi il passato non esce mai del tutto ma conta sempre meno.
+Il "seme" è una SMA: per questo la prima EMA valida arriva dopo <em>n</em> barre, come su TradingView.</p>
+<div class="formula">RMA = stessa formula con α = 1/n   (media di Wilder, usata da RSI e ATR)</div>
+<div class="formula">WMA(x, n) = Σ (n−i)·x<sub>t−i</sub> / Σ (n−i),  i = 0 … n−1      VWMA = SMA(x·volume) / SMA(volume)</div>
+
+<h3>Volatilità</h3>
+<div class="formula">TR<sub>t</sub> = max(high − low, |high − close<sub>t−1</sub>|, |low − close<sub>t−1</sub>|)      ATR = RMA(TR, n)</div>
+<p>Il <em>true range</em> misura l'escursione della barra includendo i gap rispetto alla chiusura precedente.
+<code>ta.tr</code> è <code>na</code> sulla prima barra; <code>ta.atr</code> usa <code>ta.tr(true)</code>, che lì vale <code>high − low</code>.</p>
+<div class="formula">stdev(x, n) = √( Σ (x<sub>t−i</sub> − μ)² / n )   (con biased = false si divide per n − 1)</div>
+<p><code>ta.bb</code> (Bollinger) = SMA ± k·stdev.</p>
+
+<h3>Oscillatori e momentum</h3>
+<div class="formula">RSI = 100 − 100 / (1 + RS),   RS = RMA(guadagni, n) / RMA(perdite, n)</div>
+<p>dove guadagno = max(x − x<sub>t−1</sub>, 0) e perdita = max(x<sub>t−1</sub> − x, 0). Senza perdite RSI vale 100, senza guadagni 0.
+<code>ta.macd</code> = EMA veloce − EMA lenta, con linea di segnale EMA del MACD e istogramma come differenza.
+<code>ta.change</code>, <code>ta.mom</code> e <code>ta.roc</code> confrontano <code>x</code> con <code>x[n]</code>.</p>
+
+<h3>Eventi</h3>
+<div class="formula">crossover(a, b) = a &gt; b  and  a[1] ≤ b[1]        crossunder(a, b) = a &lt; b  and  a[1] ≥ b[1]</div>
+<p>Il segnale scatta nella barra in cui l'ordine si inverte. Ci sono anche <code>ta.barssince</code>, <code>ta.valuewhen</code>, <code>ta.cum</code>,
+<code>ta.rising</code>/<code>falling</code>, <code>ta.highest</code>/<code>lowest</code> (con la forma breve <code>ta.highest(n)</code> che usa <code>high</code>).</p>
+
+<h3>Supertrend</h3>
+<p>Due bande attorno a <code>hl2</code> a distanza <em>f</em>·ATR. Le bande funzionano a "cricchetto": la banda inferiore può
+solo salire e quella superiore solo scendere, finché il prezzo non le attraversa. Quando la chiusura buca la banda attiva,
+la direzione si inverte (−1 = rialzo, 1 = ribasso) e il supertrend passa sull'altra banda. È una traduzione riga per riga del
+<code>pine_supertrend</code> del manuale, compreso il <code>nz()</code> sulle bande precedenti (per questo alla prima barra vale 0).</p>
+
+<h3 id="input">Input e override</h3>
+<p>Gli <code>input.*</code> restituiscono il valore di default, a meno che il run non riceva un valore per lo stesso <strong>titolo</strong>:</p>
+<pre><code>fastLen = input.int(10, "Fast SMA", minval = 1)
+
+Interpreter.Run(script, bars, inputs: { ["Fast SMA"] = Value.Int(20) })</code></pre>
+<p>L'override viene convertito al tipo dell'input e controllato su <code>minval</code>, <code>maxval</code> e <code>options</code>; un
+<code>input.source</code> si sovrascrive col nome del campo (<code>"high"</code>, <code>"hl2"</code>). I valori usati finiscono in
+<code>ExecutionResult.Inputs</code>: è la base per l'ottimizzazione dei parametri (stesso script, griglia di input).</p>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 id="fase4">Fase 4 — Motore di backtest <span class="badge done">fatto</span></h2>
+<p>Un backtest risponde alla domanda: <em>"se avessi seguito questi segnali, cosa sarebbe successo?"</em>. La parte difficile
+non sono i segnali (li calcola lo script) ma l'esecuzione: a che prezzo e in che momento si sarebbe davvero entrati e usciti.
+Il <code>Broker</code> (<code>Backtester.Engine</code>) imita l'emulatore di broker di TradingView, così che i risultati siano confrontabili.</p>
+<pre><code>var bars = OhlcvCsv.ReadFile("btc_1h.csv");
+var result = Backtest.Run(Parser.Parse(source), bars, new BacktestOptions { MinTick = 0.01 });
+// result.Trades, result.OpenTrades, result.Equity, result.Settings</code></pre>
+
+<h3 id="timing">Quando si esegue un ordine</h3>
+<p>Lo script gira alla <strong>chiusura</strong> della barra: quando decide di comprare, quel prezzo è già passato. Eseguire l'ordine
+alla chiusura della stessa barra sarebbe <em>look-ahead bias</em>: usare un'informazione (la chiusura) per operare a un prezzo
+che in realtà non era più disponibile quando l'informazione è arrivata. Per questo il default è:</p>
+<figure>
+<svg viewBox="0 0 820 200" role="img" aria-label="Un ordine piazzato alla barra N viene eseguito all'apertura della barra N+1">
+  <defs>
+    <marker id="arrow3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" class="fill-accent"/>
+    </marker>
+  </defs>
+  <!-- candle N -->
+  <line class="stroke" x1="160" y1="30" x2="160" y2="150"/>
+  <rect class="box" x="135" y="55" width="50" height="70"/>
+  <text x="160" y="178" text-anchor="middle" font-size="13">barra N</text>
+  <!-- candle N+1 -->
+  <line class="stroke" x1="460" y1="20" x2="460" y2="140"/>
+  <rect class="box" x="435" y="40" width="50" height="75"/>
+  <text x="460" y="178" text-anchor="middle" font-size="13">barra N+1</text>
+  <!-- close marker -->
+  <circle cx="185" cy="55" r="5" class="fill-line"/>
+  <text x="200" y="40" font-size="12.5">close N: lo script gira e chiama strategy.entry()</text>
+  <!-- open marker -->
+  <circle cx="435" cy="115" r="6" class="fill-accent"/>
+  <path class="stroke-accent" d="M 192 60 C 300 90, 350 112, 427 115" marker-end="url(#arrow3)"/>
+  <text x="510" y="112" font-size="12.5">open N+1: l'ordine a mercato viene eseguito</text>
+  <text x="510" y="132" font-size="12" class="muted">(+ slippage)</text>
+  <text x="200" y="150" font-size="12" class="muted">con process_orders_on_close = true: eseguito subito al close N</text>
+</svg>
+</figure>
+<p>Tecnicamente l'interprete chiama il broker due volte per barra tramite <code>IBarHooks</code>:</p>
+<ol>
+  <li><code>BeforeBar</code>: esegue gli ordini pendenti sull'open e lungo il percorso della barra, poi salva lo stato
+  (<code>strategy.position_size</code>, <code>strategy.equity</code>, ...) che lo script vedrà;</li>
+  <li>lo script gira e piazza nuovi ordini;</li>
+  <li><code>AfterBar</code>: con <code>process_orders_on_close</code> esegue gli ordini a mercato al close; registra il punto di equity.</li>
+</ol>
+
+<h3 id="percorso">Percorso intrabar</h3>
+<p>Una candela OHLC dice dove il prezzo è stato, non <em>in che ordine</em>. Se nella stessa barra il prezzo tocca sia lo stop sia il
+take profit, quale è venuto prima? Il dato non c'è, quindi serve un'ipotesi. Quella di TradingView, adottata qui:
+<strong>dall'open il prezzo va prima verso l'estremo più vicino</strong>, poi all'altro, poi al close.</p>
+<figure>
+<svg viewBox="0 0 820 230" role="img" aria-label="Percorso intrabar ipotizzato">
+  <defs>
+    <marker id="arrow4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" class="fill-accent"/>
+    </marker>
+  </defs>
+  <text x="40" y="24" font-size="13" font-weight="600">open più vicino al low</text>
+  <line class="stroke" x1="200" y1="40" x2="200" y2="200"/>
+  <rect class="box" x="180" y="120" width="40" height="40"/>
+  <polyline class="stroke-accent" points="120,160 120,198 145,198 145,42 170,42 170,120" marker-end="url(#arrow4)"/>
+  <text x="60" y="164" font-size="12">open</text>
+  <text x="60" y="202" font-size="12">1. low</text>
+  <text x="60" y="46" font-size="12">2. high</text>
+  <text x="232" y="124" font-size="12">3. close</text>
+
+  <text x="450" y="24" font-size="13" font-weight="600">open più vicino al high</text>
+  <line class="stroke" x1="610" y1="40" x2="610" y2="200"/>
+  <rect class="box" x="590" y="70" width="40" height="50"/>
+  <polyline class="stroke-accent" points="530,70 530,42 555,42 555,198 580,198 580,120" marker-end="url(#arrow4)"/>
+  <text x="470" y="74" font-size="12">open</text>
+  <text x="470" y="46" font-size="12">1. high</text>
+  <text x="470" y="202" font-size="12">2. low</text>
+  <text x="642" y="124" font-size="12">3. close</text>
+</svg>
+</figure>
+<p>Il broker percorre i tre segmenti (open→estremo, estremo→estremo, estremo→close) e su ciascuno cerca l'ordine che il prezzo
+raggiunge per primo. Un ordine eseguito può attivarne altri sul resto del percorso: un'entrata eseguita all'open rende
+attivo il suo <code>strategy.exit</code> già nella stessa barra. Se la barra apre <em>oltre</em> il livello (un gap), l'ordine si esegue
+all'open, non al livello: il prezzo non è mai passato di lì.</p>
+
+<h3 id="ordini">Tipi di ordine</h3>
+<table>
+  <tr><th>Chiamata</th><th>Comportamento</th></tr>
+  <tr><td><code>strategy.entry</code></td><td>Apre una posizione. Se c'è una posizione opposta la <strong>inverte</strong> (chiude tutto e apre la nuova).
+  Nella stessa direzione rispetta <code>pyramiding</code> (default 1: un solo ingresso).</td></tr>
+  <tr><td><code>strategy.order</code></td><td>Ordine "grezzo": aggiunge la quantità, riducendo prima un'eventuale posizione opposta. Ignora <code>pyramiding</code>.</td></tr>
+  <tr><td><code>limit</code> / <code>stop</code></td><td>Limit: esegui a questo prezzo o meglio (sotto per comprare). Stop: esegui quando il prezzo arriva qui (sopra per comprare).
+  Con entrambi è uno stop-limit: lo stop "arma" il limit.</td></tr>
+  <tr><td><code>strategy.exit</code></td><td>Ordine di uscita a forbice (OCA) sui trade di <code>from_entry</code>: take profit (<code>limit</code> o <code>profit</code> in tick),
+  stop loss (<code>stop</code> o <code>loss</code> in tick), trailing stop. Il primo che scatta annulla gli altri.
+  Richiamarlo con lo stesso id lo <em>modifica</em> (un trailing già attivo mantiene il suo stato).</td></tr>
+  <tr><td>Trailing stop</td><td>Si attiva quando il prezzo raggiunge <code>trail_price</code> (o entry ± <code>trail_points</code> tick); da lì lo stop segue
+  il massimo raggiunto a distanza <code>trail_offset</code> tick.</td></tr>
+  <tr><td><code>strategy.close</code> / <code>close_all</code></td><td>Uscita a mercato dei trade di un'entrata / di tutti. Con <code>immediately = true</code> al close corrente.</td></tr>
+  <tr><td><code>strategy.cancel</code> / <code>cancel_all</code></td><td>Annulla ordini pendenti.</td></tr>
+</table>
+<p>Ogni esecuzione di ingresso crea un <code>Trade</code>; le uscite chiudono i trade in ordine <strong>FIFO</strong> (il più vecchio prima),
+spezzando l'ultimo se l'uscita è parziale (<code>qty</code>, <code>qty_percent</code>). Ogni trade chiuso registra prezzi, profitto netto,
+commissioni, <em>run-up</em> (massimo guadagno latente) e <em>drawdown</em> (massima perdita latente).</p>
+
+<h3 id="costi">Size, commissioni, slippage</h3>
+<table>
+  <tr><th>Impostazione di <code>strategy()</code></th><th>Effetto</th></tr>
+  <tr><td><code>default_qty_type = strategy.fixed</code></td><td>quantità = <code>default_qty_value</code> (default 1)</td></tr>
+  <tr><td><code>strategy.cash</code></td><td>quantità = valore / prezzo</td></tr>
+  <tr><td><code>strategy.percent_of_equity</code></td><td>quantità = equity × % / prezzo, calcolata quando l'ordine viene piazzato (prezzo = close, o il livello per limit/stop)</td></tr>
+  <tr><td><code>commission_type</code></td><td><code>percent</code> del controvalore, <code>cash_per_contract</code>, <code>cash_per_order</code>; addebitata all'ingresso e all'uscita</td></tr>
+  <tr><td><code>slippage</code></td><td>tick a sfavore su ordini a mercato e stop (i limit non hanno slippage per definizione)</td></tr>
+</table>
+<div class="formula">equity = capitale iniziale + profitto netto dei trade chiusi + profitto latente dei trade aperti (al close)</div>
+<p>Le variabili <code>strategy.*</code> lette dallo script valgono come in TradingView: un ordine piazzato alla barra N si vede in
+<code>strategy.position_size</code> dalla barra N+1. La storia (<code>strategy.equity[1]</code>) viene dagli stati salvati prima di ogni barra.</p>
+
+<h3 id="csv">Dati OHLCV</h3>
+<p><code>OhlcvCsv</code> legge CSV con intestazione; l'export dei grafici di TradingView funziona così com'è. Le colonne si trovano per nome
+(<code>time</code>/<code>date</code>/<code>datetime</code>/<code>timestamp</code>, <code>open</code>, <code>high</code>, <code>low</code>, <code>close</code>, <code>volume</code> opzionale), il
+separatore (<code>,</code> <code>;</code> tab) si riconosce dall'intestazione, il tempo può essere unix in secondi o millisecondi o una data ISO (UTC).</p>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 id="fase5">Fase 5 — Output e metriche <span class="badge next">prossima</span></h2>
+<p>Il motore produce già trade ed equity in memoria; la fase 5 li scrive in CSV, calcola le metriche e, soprattutto,
+<strong>valida</strong> il tutto contro TradingView.</p>
+<table>
+  <tr><th>Metrica</th><th>Definizione</th></tr>
+  <tr><td>Net profit</td><td>Σ profitti dei trade chiusi (al netto delle commissioni)</td></tr>
+  <tr><td>Profit factor</td><td>profitto lordo / perdita lorda: sopra 1 la strategia guadagna più di quanto perde</td></tr>
+  <tr><td>Win rate</td><td>trade vincenti / trade chiusi</td></tr>
+  <tr><td>Max drawdown</td><td>massima discesa dell'equity da un picco precedente: max(picco − equity)</td></tr>
+</table>
+<p>I <strong>golden test</strong> eseguono una strategia sugli stessi dati esportati da TradingView e confrontano trade per trade con la
+sua "List of trades". È l'unico modo per scoprire le differenze sottili (inizializzazione di una media, un caso limite del broker)
+che i test scritti a mano non trovano.</p>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 id="limiti">Limiti noti</h2>
+<div class="note warn">
+<ul>
+  <li>Non supportati: <code>request.security</code> (multi-timeframe), <code>import</code> di librerie, tipi utente (<code>type</code>), <code>method</code>,
+  <code>enum</code>, <code>map</code>/<code>matrix</code>, array come oggetti.</li>
+  <li>Rimandati: <code>ta.pivothigh</code>/<code>pivotlow</code>, funzioni di data e ora (<code>year</code>, <code>hour</code>, ...), <code>syminfo.*</code>
+  tranne <code>syminfo.mintick</code>.</li>
+  <li>Broker: niente margin call, niente <code>oca_name</code> tra ordini diversi, niente "bar magnifier" (dati a timeframe inferiore per il
+  percorso intrabar), quantità frazionarie senza arrotondamento al lotto minimo.</li>
+  <li>Comportamenti da confermare con i golden test: ripartenza di EMA/RMA dopo un <code>na</code>, calcolo della size con
+  <code>percent_of_equity</code>.</li>
+</ul>
+</div>
+<p>Il piano completo e il registro delle decisioni sono in <code>ROADMAP.md</code> nella radice del repository.</p>
+</main>
+</div>
+</body>
+</html>
