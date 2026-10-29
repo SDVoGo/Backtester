@@ -6,6 +6,12 @@
       "runtimeExecutable": "dotnet",
       "runtimeArgs": ["run", "--project", "Backtester", "--launch-profile", "http"],
       "port": 5014
+    },
+    {
+      "name": "backtester-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "Backtester.Web", "run", "dev"],
+      "port": 4321
     }
   ]
 }
