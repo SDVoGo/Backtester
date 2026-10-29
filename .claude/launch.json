@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backtester-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "Backtester", "--launch-profile", "http"],
+      "port": 5014
+    }
+  ]
+}
