@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="Backtester/Backtester.csproj" />
+  <Project Path="Pine.Core.Tests/Pine.Core.Tests.csproj" />
+  <Project Path="Pine.Core/Pine.Core.csproj" />
 </Solution>

@@ -15,4 +15,8 @@
     <EmbeddedResource Include="Resources\*" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Pine.Core\Pine.Core.csproj" />
+  </ItemGroup>
+
 </Project>
