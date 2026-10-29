@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Pine.Core.Lexing;
 using Pine.Core.Parsing;
 using Pine.Core.Runtime;
+using Pine.Core.Runtime.Builtins;
 
 public sealed class BacktestForm
 {
@@ -25,13 +26,16 @@ public sealed class BacktestForm
     public double MinTick { get; set; } = 0.01;
 }
 
-/// <summary>Strategy run as JSON: everything in <see cref="BacktestResult"/> except the interpreter internals.</summary>
+/// <summary>Strategy run as JSON: everything in <see cref="BacktestResult"/> except the interpreter internals, plus the bars it ran on.</summary>
 public sealed record BacktestResponse(
     StrategySettings Settings,
     StrategyMetrics Metrics,
     IReadOnlyDictionary<string, string> Inputs,
     IReadOnlyList<ClosedTrade> Trades,
-    IReadOnlyList<Trade> OpenTrades);
+    IReadOnlyList<Trade> OpenTrades,
+    IReadOnlyList<EquityPoint> Equity,
+    IReadOnlyList<PlotSeries> Plots,
+    IReadOnlyList<Bar> Bars);
 
 [ApiController]
 [Route("api/backtest")]
@@ -49,7 +53,7 @@ public class BacktestController : ControllerBase
     [HttpPost("csv")]
     [Consumes("multipart/form-data")]
     public Task<IActionResult> RunCsv([FromForm] BacktestForm form)
-        => Execute(form, null, result => File(Zip(result), "application/zip", "backtest.zip"));
+        => Execute(form, null, (result, _) => File(Zip(result), "application/zip", "backtest.zip"));
 
     /// <summary>Runs the sample strategy001.pine (the script field is ignored); without data, on the sample dataset.</summary>
     [HttpPost("strategy001")]
@@ -57,15 +61,32 @@ public class BacktestController : ControllerBase
     public Task<IActionResult> Strategy001([FromForm] BacktestForm form)
         => Execute(form, Utils.Resources.ReadFile("strategy001"), Respond);
 
-    private OkObjectResult Respond(BacktestResult result)
+    /// <summary>Source of a sample strategy in Resources (strategy001, test002).</summary>
+    [HttpGet("samples/{name}")]
+    public IActionResult Sample(string name)
+    {
+        try
+        {
+            return Content(Utils.Resources.ReadFile(name), "text/plain; charset=utf-8");
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
+    private OkObjectResult Respond(BacktestResult result, IReadOnlyList<Bar> bars)
         => Ok(new BacktestResponse(
             result.Settings,
             result.Metrics,
             result.Execution.Inputs.ToDictionary(i => i.Key, i => i.Value.ToString()),
             result.Trades,
-            result.OpenTrades));
+            result.OpenTrades,
+            result.Equity,
+            result.Execution.Plots,
+            bars));
 
-    private async Task<IActionResult> Execute(BacktestForm form, string? source, Func<BacktestResult, IActionResult> respond)
+    private async Task<IActionResult> Execute(BacktestForm form, string? source, Func<BacktestResult, IReadOnlyList<Bar>, IActionResult> respond)
     {
         try
         {
@@ -83,7 +104,7 @@ public class BacktestController : ControllerBase
                 Inputs = string.IsNullOrWhiteSpace(form.Inputs) ? null : InputValues.ParseJson(form.Inputs),
             };
 
-            return respond(Backtest.Run(Parser.Parse(source), bars, options));
+            return respond(Backtest.Run(Parser.Parse(source), bars, options), bars);
         }
         catch (LexerException ex)
         {
