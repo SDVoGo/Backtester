@@ -1,9 +1,8 @@
 namespace Pine.Core.Runtime.Builtins;
 
 /// <summary>
-/// Minimal built-ins needed by the interpreter itself: bar data, <c>na</c>, <c>nz</c>,
-/// <c>plot</c> (records values) and <c>ta.sma</c> as reference stateful function.
-/// The full library comes in phase 3.
+/// Built-ins needed by the interpreter itself: bar data, <c>na</c>, <c>nz</c>, <c>fixnan</c>
+/// and <c>plot</c> (records values).
 /// </summary>
 internal static class CoreBuiltins
 {
@@ -15,9 +14,9 @@ internal static class CoreBuiltins
             .Constant("na", Value.Na)
             .Function("na", ["x"], call => Value.Bool(call[0].IsNa))
             .Function("nz", ["source", "replacement"], Nz)
+            .Function("fixnan", ["source"], FixNan)
             .Function("indicator", ["title"], _ => Value.Na, acceptsAnyArguments: true)
-            .Function("plot", ["series", "title"], Plot, acceptsAnyArguments: true)
-            .Function("ta.sma", ["source", "length"], Sma);
+            .Function("plot", ["series", "title"], Plot, acceptsAnyArguments: true);
     }
 
     private static void RegisterBarData(BuiltinRegistry registry)
@@ -34,6 +33,7 @@ internal static class CoreBuiltins
             .Variable("hl2", FromBar(b => (b.High + b.Low) / 2))
             .Variable("hlc3", FromBar(b => (b.High + b.Low + b.Close) / 3))
             .Variable("ohlc4", FromBar(b => (b.Open + b.High + b.Low + b.Close) / 4))
+            .Variable("hlcc4", FromBar(b => (b.High + b.Low + b.Close + b.Close) / 4))
             .Variable("time", (context, offset) => context.BarAt(offset) is { } bar ? Value.Int(bar.Time) : Value.Na)
             .Variable("bar_index", (context, offset) => context.BarIndex >= offset ? Value.Int(context.BarIndex - offset) : Value.Na)
             .Variable("last_bar_index", (context, _) => Value.Int(context.Bars.Count - 1))
@@ -52,6 +52,20 @@ internal static class CoreBuiltins
             return source;
 
         return call.ArgOr(1, Value.Int(0));
+    }
+
+    private sealed class LastValueState
+    {
+        public Value Last;
+    }
+
+    /// <summary>Replaces na with the last non-na value seen by this call site.</summary>
+    private static Value FixNan(CallContext call)
+    {
+        var state = call.State<LastValueState>();
+        if (!call[0].IsNa)
+            state.Last = call[0];
+        return state.Last;
     }
 
     private sealed class PlotState
@@ -76,30 +90,5 @@ internal static class CoreBuiltins
         var value = call[0];
         state.Series.Values[call.BarIndex] = value.IsNumber ? value.AsDouble : null;
         return Value.Na;
-    }
-
-    private sealed class WindowState
-    {
-        public readonly Queue<double> Values = new();
-    }
-
-    /// <summary>Simple moving average; na until <c>length</c> values are seen or if any is na.</summary>
-    private static Value Sma(CallContext call)
-    {
-        var length = call.Length(1);
-        var window = call.State<WindowState>().Values;
-
-        window.Enqueue(call[0].IsNumber ? call[0].AsDouble : double.NaN);
-        while (window.Count > length)
-            window.Dequeue();
-
-        if (window.Count < length)
-            return Value.Na;
-
-        var sum = 0.0;
-        foreach (var value in window)
-            sum += value;
-
-        return Value.Float(sum / length);
     }
 }

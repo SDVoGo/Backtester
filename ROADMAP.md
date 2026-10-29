@@ -75,10 +75,15 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 - [x] Registro built-in estendibile (`BuiltinRegistry`); `na()`, `nz()`, `plot()` (registra i valori), `ta.sma` di riferimento
 - [x] Errori di runtime con riga, colonna e barra (`PineRuntimeException`)
 
-### Fase 3 — Built-in
-- [ ] `input.*`, `math.*`, `str.tostring`, `nz`, `na`, `fixnan`
-- [ ] `ta.sma ema rma wma atr tr rsi highest lowest crossover crossunder change supertrend stdev`
-- [ ] Funzioni grafiche come no-op
+### Fase 3 — Built-in ✅
+- [x] `input.*` (`int float bool string color source timeframe session symbol price time`): default o override per titolo, validato su `minval`/`maxval`/`options`; valori usati in `ExecutionResult.Inputs`
+- [x] `math.*` (variadiche `max min avg`, `round` con precisione, `sum`, trigonometria, costanti), `nz`, `na`, `fixnan`
+- [x] `str.*` (`tostring` con formati `#.##`/`format.*`, `format` stile MessageFormat, `tonumber`, `length`, `contains`, ...)
+- [x] `color.*` (palette, `new`, `rgb`, `r g b t`, `from_gradient`): i colori non disegnano ma vanno valutati
+- [x] `ta.sma ema rma wma vwma tr atr rsi stdev highest lowest crossover crossunder cross change mom roc rising falling cum barssince valuewhen macd bb supertrend`
+- [x] Funzioni grafiche e di alert come no-op; namespace di disegno (`line.*`, `label.*`, `box.*`, `table.*`, `shape.*`, ...) no-op in blocco
+- [x] `test002.pine` eseguito per intero (test di integrazione)
+- Rimandati: `ta.pivothigh/pivotlow` (semantica da verificare su TradingView), `syminfo.*`, funzioni di tempo (`year`, `hour`, `dayofweek`, ...)
 
 ### Fase 4 — Motore di backtest (`Backtester.Engine`)
 - [ ] Lettura OHLCV da CSV
@@ -116,3 +121,8 @@ opzionale, `var`/`varip`, `:=` e assegnazioni composte, `if`/`else`, `for`, `for
 | 2026-10-29 | Confronti con `na` (anche `==`/`!=`) danno `false`; `na` in una condizione vale `false`. `and`/`or` sono lazy (v6). |
 | 2026-10-29 | `plot()` non è un no-op: registra i valori per barra (`ExecutionResult.Plots`). Serve per i test e potrà finire nel CSV. |
 | 2026-10-29 | Stato per call-site indicizzato per identità del nodo AST (`ReferenceEqualityComparer`), non per uguaglianza strutturale dei record. |
+| 2026-10-29 | `ta.*` portati dalle implementazioni di riferimento del manuale Pine (`pine_ema`, `pine_supertrend`, ...), incluse le stranezze su `na`. Internamente `na` = `NaN` (`Indicators.cs`). |
+| 2026-10-29 | EMA/RMA: la SMA di innesco vede ogni barra, quindi dopo un `na` la media riparte da una finestra pulita. Da confermare con i golden test. |
+| 2026-10-29 | Override degli input indicizzati per **titolo** dell'input; gli input senza titolo non sono sovrascrivibili. `input.source` si sovrascrive col nome del campo (`"high"`, `"hl2"`). |
+| 2026-10-29 | Namespace di disegno: funzioni no-op che restituiscono `na` (così `na(myLine)` funziona) e costanti stringa col proprio nome (`line.style_dotted`). Le lookup non modificano il registro: un `BuiltinRegistry` è condivisibile tra run. |
+| 2026-10-29 | `format.mintick` assume tick 0.01 finché non esiste `syminfo` (fase 4). |

@@ -4,7 +4,11 @@ using Pine.Core.Syntax;
 
 namespace Pine.Core.Runtime;
 
-public sealed record ExecutionResult(IReadOnlyList<PlotSeries> Plots, IReadOnlyDictionary<string, Value> Globals);
+/// <param name="Inputs">Value used for each <c>input.*</c>, keyed by title (default or override).</param>
+public sealed record ExecutionResult(
+    IReadOnlyList<PlotSeries> Plots,
+    IReadOnlyDictionary<string, Value> Globals,
+    IReadOnlyDictionary<string, Value> Inputs);
 
 /// <summary>
 /// Tree-walking interpreter following Pine's execution model:
@@ -29,16 +33,18 @@ public sealed class Interpreter
     private InstanceState _state;
     private Flow _flow;
 
-    private Interpreter(Script script, IReadOnlyList<Bar> bars, BuiltinRegistry builtins)
+    private Interpreter(Script script, IReadOnlyList<Bar> bars, BuiltinRegistry builtins, IReadOnlyDictionary<string, Value>? inputs)
     {
         _script = script;
         _builtins = builtins;
-        _context = new BarContext(bars);
+        _context = new BarContext(bars, inputs);
         _state = _rootState;
     }
 
-    public static ExecutionResult Run(Script script, IReadOnlyList<Bar> bars, BuiltinRegistry? builtins = null)
-        => new Interpreter(script, bars, builtins ?? BuiltinRegistry.CreateDefault()).Run();
+    /// <param name="inputs">Overrides for <c>input.*</c> default values, keyed by input title.</param>
+    public static ExecutionResult Run(
+        Script script, IReadOnlyList<Bar> bars, BuiltinRegistry? builtins = null, IReadOnlyDictionary<string, Value>? inputs = null)
+        => new Interpreter(script, bars, builtins ?? BuiltinRegistry.CreateDefault(), inputs).Run();
 
     private int BarIndex => _context.BarIndex;
 
@@ -65,7 +71,7 @@ public sealed class Interpreter
         }
 
         var globals = _globals.Variables.ToDictionary(v => v.Key, v => v.Value.Current);
-        return new ExecutionResult(_context.PlotList, globals);
+        return new ExecutionResult(_context.PlotList, globals, _context.InputValues);
     }
 
     private PineRuntimeException Error(string message, SourcePos pos)
@@ -534,17 +540,18 @@ public sealed class Interpreter
 
     /// <summary>Evaluates arguments in the caller's scope and binds them to parameter positions.</summary>
     private (Value[] Values, bool[] Provided) BindArguments(
-        CallExpr call, Environment env, string name, IReadOnlyList<string> parameters, bool acceptsAny)
+        CallExpr call, Environment env, string name, IReadOnlyList<string> parameters, bool acceptsAny, bool variadic = false)
     {
-        var values = new Value[parameters.Count];
-        var provided = new bool[parameters.Count];
+        var slots = variadic ? Math.Max(parameters.Count, call.Arguments.Count(a => a.Name is null)) : parameters.Count;
+        var values = new Value[slots];
+        var provided = new bool[slots];
 
         for (var i = 0; i < call.Arguments.Count; i++)
         {
             var argument = call.Arguments[i];
             var index = argument.Name is null ? i : IndexOf(parameters, argument.Name);
 
-            if (index < 0 || index >= parameters.Count)
+            if (index < 0 || index >= slots)
             {
                 if (acceptsAny)
                     continue;
@@ -555,7 +562,7 @@ public sealed class Interpreter
             }
 
             if (provided[index])
-                throw Error($"Argument '{parameters[index]}' passed twice", argument.Pos);
+                throw Error($"Argument '{(index < parameters.Count ? parameters[index] : index + 1)}' passed twice", argument.Pos);
 
             values[index] = Evaluate(argument.Value, env);
             provided[index] = true;
@@ -576,7 +583,7 @@ public sealed class Interpreter
 
     private Value CallBuiltin(BuiltinFunction builtin, CallExpr call, Environment env)
     {
-        var (values, provided) = BindArguments(call, env, builtin.Name, builtin.Parameters, builtin.AcceptsAnyArguments);
+        var (values, provided) = BindArguments(call, env, builtin.Name, builtin.Parameters, builtin.AcceptsAnyArguments, builtin.Variadic);
         return builtin.Body(new CallContext(_context, call, _state, values, provided));
     }
 
