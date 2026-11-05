@@ -1,4 +1,10 @@
 <Solution>
+  <Project Path="Backtester.Cli/Backtester.Cli.csproj" Id="7b94006f-5321-4058-815a-301c609cd347">
+    <BuildDependency Project="Backtester.Engine/Backtester.Engine.csproj" />
+  </Project>
   <Project Path="Backtester.Engine/Backtester.Engine.csproj" />
-  <Project Path="Backtester/Backtester.csproj" />
+  <Project Path="Backtester.Infrastructure/Backtester.Infrastructure.csproj" Id="2f05b1b4-e8df-49f9-9cef-66cebb17867b" />
+  <Project Path="Backtester/Backtester.API.csproj">
+    <BuildDependency Project="Backtester.Engine/Backtester.Engine.csproj" />
+  </Project>
 </Solution>

@@ -11,4 +11,9 @@
     <PackageReference Include="Scalar.AspNetCore" Version="2.17.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Backtester.Engine\Backtester.Engine.csproj" />
+    <ProjectReference Include="..\Backtester.Infrastructure\Backtester.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>
