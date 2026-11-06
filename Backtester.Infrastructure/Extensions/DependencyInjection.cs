@@ -1,5 +1,4 @@
-﻿using Backtester.Engine;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 
 namespace Backtester.Infrastructure.Extensions
 {
@@ -7,7 +6,7 @@ namespace Backtester.Infrastructure.Extensions
     {
         public static IServiceCollection AddBacktester(this IServiceCollection services)
         {
-            services.AddScoped<Engine>();
+            services.AddScoped<Backtester.Engine.Engine>();
 
             // Repository
             // Data provider
